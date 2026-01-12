@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import SearchBox from './components/SearchBox';
 import SearchResults from './components/SearchResults';
 import TrendingSection from './components/TrendingSection';
@@ -10,7 +10,7 @@ function App() {
   const [error, setError] = useState(null);
   const [showTrending, setShowTrending] = useState(true);
 
-  const handleSearch = async (query, searchType, page = 1) => {
+  const handleSearch = async (query, page = 1) => {
     setLoading(true);
     setError(null);
     setShowTrending(false); // Hide trending when searching
@@ -57,17 +57,15 @@ function App() {
       <div className="container">
         <header className="app-header">
           <div className="logo-container" onClick={handleLogoClick}>
-            <h1 className="infinitum-logo">
-              <span className="logo-i">I</span>
-              <span className="logo-n">N</span>
-              <span className="logo-f">F</span>
-              <span className="logo-i2">I</span>
-              <span className="logo-n2">N</span>
-              <span className="logo-i3">I</span>
-              <span className="logo-t">T</span>
-              <span className="logo-u">U</span>
-              <span className="logo-m">M</span>
-            </h1>
+            <div className="infinitum-logo-wrapper">
+              <div className="logo-3d">
+                <div className="logo-symbol">
+                  <div className="infinity-part-1"></div>
+                  <div className="infinity-part-2"></div>
+                </div>
+              </div>
+              <h1 className="infinitum-text">INFINITUM</h1>
+            </div>
           </div>
           <p className="tagline">Infinite Search. Infinite Possibilities.</p>
         </header>
