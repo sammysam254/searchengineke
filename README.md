@@ -1,33 +1,31 @@
-# Social Search Engine
+# INFINITUM Search Engine 🚀
 
-A comprehensive search engine that aggregates results from **multiple search engines** including Google, Bing, DuckDuckGo, Yahoo, and Yandex, plus social media platforms like GitHub and Reddit.
+**Infinite Search. Infinite Possibilities.**
 
-## 🚀 Live Demo
+A modern, beautiful search engine with 3D animated logo, trending searches, and dynamic content. Built with React and powered by Google Custom Search API.
 
-[View Live Demo](https://your-app-name.netlify.app) *(Update this URL after deployment)*
+## 🌟 Live Demos
+
+- **Netlify**: [https://searchke.netlify.app](https://searchke.netlify.app)
+- **Vercel**: Deploy your own → [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/sammysam254/searchengineke)
 
 ## ✨ Features
 
-### 🔍 **Multi-Engine Web Search**
-- **Google Custom Search API** - High-quality, relevant results
-- **Microsoft Bing Search API** - Comprehensive web coverage  
-- **DuckDuckGo** - Privacy-focused search results
-- **Yahoo Search** - Additional web coverage
-- **Yandex** - International and multilingual results
-- **Result Aggregation** - Combines and deduplicates results from all sources
+- 🎨 **Stunning 3D Animated Logo** - Floating infinity symbol with gradients
+- 🔥 **Trending Searches** - Updates every hour with dynamic content
+- 🌟 **Suggested Websites** - Curated recommendations refreshed every 30 minutes
+- 🚀 **Beautiful Loading Animations** - Smooth spinners and progress bars
+- 📱 **Fully Responsive** - Works perfectly on all devices
+- ⚡ **Lightning Fast** - Optimized for performance
+- 🌐 **Multi-Platform** - Deploy on Netlify or Vercel
 
-### 📱 **Social Media Search**
-- **GitHub** - User profiles and repositories
-- **Reddit** - Posts, discussions, and communities
-- **Twitter** - Tweets and user profiles (via Nitter)
-- **LinkedIn** - Professional profiles (API integration)
+## 🚀 Quick Deploy
 
-### 🎯 **Smart Features**
-- **Intelligent Fallbacks** - If one search engine fails, others continue working
-- **Result Deduplication** - Removes duplicate URLs across sources
-- **Source Attribution** - Shows which search engines provided results
-- **Responsive Design** - Works perfectly on mobile and desktop
-- **Real-time Stats** - Displays search engine performance and status
+### Deploy to Vercel (Recommended)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/sammysam254/searchengineke)
+
+### Deploy to Netlify
+[![Deploy to Netlify](https://www.netlify.com/img/deploy/button.svg)](https://app.netlify.com/start/deploy?repository=https://github.com/sammysam254/searchengineke)
 
 ## 🛠️ Tech Stack
 

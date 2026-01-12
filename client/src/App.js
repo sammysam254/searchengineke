@@ -16,12 +16,26 @@ function App() {
     setShowTrending(false); // Hide trending when searching
 
     try {
-      // Always use web search (Google API)
+      // Detect platform and use appropriate API endpoint
       let apiUrl;
+      const isVercel = window.location.hostname.includes('vercel.app') || 
+                      window.location.hostname.includes('vercel.com');
+      const isNetlify = window.location.hostname.includes('netlify.app') || 
+                       window.location.hostname.includes('netlify.com');
+      
       if (process.env.NODE_ENV === 'production') {
-        // Use simple test function first to debug
-        apiUrl = `/.netlify/functions/search-simple-test?q=${encodeURIComponent(query)}&page=${page}`;
+        if (isVercel) {
+          // Vercel deployment
+          apiUrl = `/api/search-web?q=${encodeURIComponent(query)}&page=${page}`;
+        } else if (isNetlify) {
+          // Netlify deployment - use simple test for now
+          apiUrl = `/.netlify/functions/search-simple-test?q=${encodeURIComponent(query)}&page=${page}`;
+        } else {
+          // Default to Vercel API structure
+          apiUrl = `/api/search-web?q=${encodeURIComponent(query)}&page=${page}`;
+        }
       } else {
+        // Local development
         apiUrl = `/api/search/web?q=${encodeURIComponent(query)}&page=${page}`;
       }
       
