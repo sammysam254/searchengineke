@@ -1,9 +1,10 @@
 [build]
   publish = "client/build"
-  command = "cd client && npm install && npm run build"
+  command = "node prebuild.js && cd client && npm install && npm run build"
 
 [build.environment]
   NODE_VERSION = "18"
+  CI = "false"
 
 [[redirects]]
   from = "/api/*"
