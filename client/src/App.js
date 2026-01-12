@@ -19,7 +19,8 @@ function App() {
       // Always use web search (Google API)
       let apiUrl;
       if (process.env.NODE_ENV === 'production') {
-        apiUrl = `/.netlify/functions/search-web?q=${encodeURIComponent(query)}&page=${page}`;
+        // Use simple test function first to debug
+        apiUrl = `/.netlify/functions/search-simple-test?q=${encodeURIComponent(query)}&page=${page}`;
       } else {
         apiUrl = `/api/search/web?q=${encodeURIComponent(query)}&page=${page}`;
       }
