@@ -18,7 +18,7 @@ async function searchGitHub(query, page = 1) {
     
     const response = await axios.get(repoSearchUrl, {
       headers: { 'User-Agent': userAgent },
-      timeout: 10000
+      timeout: 15000
     });
 
     console.log(`GitHub response status: ${response.status}`);
@@ -52,7 +52,7 @@ async function searchGitHub(query, page = 1) {
       const userSearchUrl = `https://github.com/search?q=${encodeURIComponent(query)}&type=users&p=${page}`;
       const userResponse = await axios.get(userSearchUrl, {
         headers: { 'User-Agent': userAgent },
-        timeout: 10000
+        timeout: 15000
       });
 
       const $users = cheerio.load(userResponse.data);
@@ -84,20 +84,14 @@ async function searchGitHub(query, page = 1) {
     };
   } catch (error) {
     console.error('GitHub search error:', error.message);
+    
+    // Return empty results instead of fake ones
     return { 
-      results: [
-        {
-          title: `${query} - GitHub Search`,
-          url: `https://github.com/search?q=${encodeURIComponent(query)}`,
-          snippet: `Find repositories, code, and developers related to ${query} on GitHub.`,
-          platform: 'github',
-          type: 'search'
-        }
-      ], 
+      results: [], 
       query, 
       page,
       hasNextPage: false,
-      note: 'GitHub search may be limited - click to search directly on GitHub'
+      error: `GitHub search failed: ${error.message}`
     };
   }
 }
@@ -114,7 +108,7 @@ async function searchReddit(query, page = 1) {
         'User-Agent': 'SearchEngine/1.0 (by /u/searchbot)',
         'Accept': 'application/json'
       },
-      timeout: 10000
+      timeout: 15000
     });
 
     console.log(`Reddit response status: ${response.status}`);
@@ -152,34 +146,13 @@ async function searchReddit(query, page = 1) {
   } catch (error) {
     console.error('Reddit search error:', error.message);
     
-    // Return mock Reddit results as fallback
+    // Return empty results instead of fake ones
     return { 
-      results: [
-        {
-          title: `Discussion about ${query}`,
-          author: 'reddit_user',
-          subreddit: 'general',
-          url: `https://reddit.com/search?q=${encodeURIComponent(query)}`,
-          score: 42,
-          platform: 'reddit',
-          type: 'post',
-          snippet: `Join the discussion about ${query} on Reddit. Find communities and conversations.`
-        },
-        {
-          title: `${query} - Ask Reddit`,
-          author: 'askreddit_user',
-          subreddit: 'AskReddit',
-          url: `https://reddit.com/r/AskReddit/search?q=${encodeURIComponent(query)}`,
-          score: 156,
-          platform: 'reddit',
-          type: 'post',
-          snippet: `What does Reddit think about ${query}? Join the conversation and share your thoughts.`
-        }
-      ], 
+      results: [], 
       query, 
       page,
       hasNextPage: false,
-      note: 'Mock Reddit results - Reddit API may be temporarily unavailable'
+      error: `Reddit search failed: ${error.message}`
     };
   }
 }
