@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import SearchBox from './components/SearchBox';
 import SearchResults from './components/SearchResults';
 import TrendingSection from './components/TrendingSection';
+import { getApiEndpoint, getPlatformInfo } from './utils/platformDetection';
 import './App.css';
 
 function App() {
@@ -16,30 +17,12 @@ function App() {
     setShowTrending(false); // Hide trending when searching
 
     try {
-      // Detect platform and use appropriate API endpoint
-      let apiUrl;
-      const isVercel = window.location.hostname.includes('vercel.app') || 
-                      window.location.hostname.includes('vercel.com');
-      const isNetlify = window.location.hostname.includes('netlify.app') || 
-                       window.location.hostname.includes('netlify.com');
+      // Use improved platform detection
+      const apiUrl = getApiEndpoint('search-web', query, page);
+      const platformInfo = getPlatformInfo();
       
-      if (process.env.NODE_ENV === 'production') {
-        if (isVercel) {
-          // Vercel deployment
-          apiUrl = `/api/search-web?q=${encodeURIComponent(query)}&page=${page}`;
-        } else if (isNetlify) {
-          // Netlify deployment - use simple test for now
-          apiUrl = `/.netlify/functions/search-simple-test?q=${encodeURIComponent(query)}&page=${page}`;
-        } else {
-          // Default to Vercel API structure
-          apiUrl = `/api/search-web?q=${encodeURIComponent(query)}&page=${page}`;
-        }
-      } else {
-        // Local development
-        apiUrl = `/api/search/web?q=${encodeURIComponent(query)}&page=${page}`;
-      }
+      console.log(`Calling API on ${platformInfo.name}:`, apiUrl);
       
-      console.log('Calling API:', apiUrl);
       let response = await fetch(apiUrl);
       
       // Check if response is ok before trying to parse JSON
@@ -59,6 +42,9 @@ function App() {
         console.error('JSON Parse Error:', jsonError);
         throw new Error('Invalid JSON response from server');
       }
+      
+      // Add platform info to results
+      data.platformInfo = platformInfo;
       
       console.log('Search results:', data);
       setResults(data);
@@ -119,12 +105,20 @@ function App() {
         {error && <div className="error">Error: {error}</div>}
         
         {results && !loading && (
-          <SearchResults 
-            results={results} 
-            activeTab="web"
-            onTabChange={() => {}}
-            onSearch={handleSearch}
-          />
+          <>
+            <SearchResults 
+              results={results} 
+              activeTab="web"
+              onTabChange={() => {}}
+              onSearch={handleSearch}
+            />
+            {results.platformInfo && (
+              <div className="platform-indicator">
+                <span className="platform-icon">{results.platformInfo.icon}</span>
+                Powered by {results.platformInfo.name}
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>
