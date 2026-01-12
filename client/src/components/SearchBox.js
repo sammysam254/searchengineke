@@ -16,32 +16,54 @@ const SearchBox = ({ onSearch }) => {
     }
   };
 
+  const handleFeelingLucky = (e) => {
+    e.preventDefault();
+    const luckySearches = [
+      'Amazing facts about space',
+      'Latest technology trends',
+      'Beautiful places to visit',
+      'Interesting science discoveries',
+      'Cool programming projects',
+      'Inspiring success stories',
+      'Creative art ideas',
+      'Healthy lifestyle tips'
+    ];
+    const randomSearch = luckySearches[Math.floor(Math.random() * luckySearches.length)];
+    onSearch(randomSearch, 'web');
+  };
+
   return (
     <div className="search-container">
       <form onSubmit={(e) => handleSubmit(e, 'web')}>
-        <input
-          type="text"
-          className="search-input"
-          placeholder="Search the web..."
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onKeyPress={handleKeyPress}
-        />
+        <div className="search-input-container">
+          <span className="search-icon">🔍</span>
+          <input
+            type="text"
+            className="search-input"
+            placeholder="Search the infinite web..."
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyPress={handleKeyPress}
+          />
+          <span className="infinity-icon">∞</span>
+        </div>
         
         <div className="search-buttons">
           <button 
             type="button"
-            className="search-btn"
+            className="search-btn primary"
             onClick={(e) => handleSubmit(e, 'web')}
           >
-            Google Search
+            <span className="btn-icon">🚀</span>
+            Infinitum Search
           </button>
           <button 
             type="button"
             className="search-btn secondary"
-            onClick={(e) => handleSubmit(e, 'web')}
+            onClick={handleFeelingLucky}
           >
-            I'm Feeling Lucky
+            <span className="btn-icon">✨</span>
+            I'm Feeling Infinite
           </button>
         </div>
       </form>
