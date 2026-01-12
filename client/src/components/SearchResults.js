@@ -47,11 +47,38 @@ const SearchResults = ({ results, activeTab, onTabChange }) => {
     return results.results?.length || 0;
   };
 
+  const renderSearchEngineStats = () => {
+    if (results.sourceStats) {
+      return (
+        <div className="search-engine-stats">
+          <p className="stats-title">Search engines used:</p>
+          <div className="stats-grid">
+            {Object.entries(results.sourceStats).map(([engine, stats]) => (
+              <div key={engine} className={`stat-item ${stats.error ? 'error' : 'success'}`}>
+                <span className="engine-name">{engine}</span>
+                <span className="result-count">{stats.count} results</span>
+                {stats.error && <span className="error-text">({stats.error})</span>}
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+    return null;
+  };
+
   return (
     <div className="results-container">
       <div className="results-header">
         <p>About {getResultCount()} results for "{results.query}"</p>
+        {results.note && (
+          <div className="search-note">
+            <p>{results.note}</p>
+          </div>
+        )}
       </div>
+      
+      {renderSearchEngineStats()}
       
       {activeTab === 'all' && (
         <div className="tabs">
