@@ -26,10 +26,23 @@ function App() {
       
       console.log('Calling API:', apiUrl);
       let response = await fetch(apiUrl);
-      let data = await response.json();
       
+      // Check if response is ok before trying to parse JSON
       if (!response.ok) {
-        throw new Error(data.error || 'Search failed');
+        const errorText = await response.text();
+        console.error('API Error Response:', errorText);
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      }
+      
+      // Try to parse JSON with error handling
+      let data;
+      try {
+        const responseText = await response.text();
+        console.log('Raw response:', responseText);
+        data = JSON.parse(responseText);
+      } catch (jsonError) {
+        console.error('JSON Parse Error:', jsonError);
+        throw new Error('Invalid JSON response from server');
       }
       
       console.log('Search results:', data);

@@ -26,7 +26,7 @@ const SearchResults = ({ results, activeTab, onTabChange, onSearch }) => {
         {hasPrevPage && (
           <button 
             className="pagination-btn prev"
-            onClick={() => onSearch && onSearch(results.query, 'web', currentPage - 1)}
+            onClick={() => onSearch && onSearch(results.query, currentPage - 1)}
           >
             ← Previous
           </button>
@@ -44,7 +44,7 @@ const SearchResults = ({ results, activeTab, onTabChange, onSearch }) => {
         {hasNextPage && (
           <button 
             className="pagination-btn next"
-            onClick={() => onSearch && onSearch(results.query, 'web', currentPage + 1)}
+            onClick={() => onSearch && onSearch(results.query, currentPage + 1)}
           >
             Next →
           </button>

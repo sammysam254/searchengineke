@@ -50,14 +50,26 @@ async function searchGoogleDirect(query, page = 1) {
 }
 
 exports.handler = async (event, context) => {
+  // Add CORS headers for all responses
+  const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Content-Type': 'application/json'
+  };
+
   if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 200, headers };
+    return { 
+      statusCode: 200, 
+      headers: corsHeaders,
+      body: ''
+    };
   }
 
   if (event.httpMethod !== 'GET') {
     return {
       statusCode: 405,
-      headers,
+      headers: corsHeaders,
       body: JSON.stringify({ error: 'Method not allowed' })
     };
   }
@@ -68,7 +80,7 @@ exports.handler = async (event, context) => {
     if (!query) {
       return {
         statusCode: 400,
-        headers,
+        headers: corsHeaders,
         body: JSON.stringify({ error: 'Query parameter is required' })
       };
     }
@@ -78,10 +90,12 @@ exports.handler = async (event, context) => {
     // Try direct Google search first
     try {
       const results = await searchGoogleDirect(query, page);
+      const responseBody = JSON.stringify(results);
+      
       return {
         statusCode: 200,
-        headers,
-        body: JSON.stringify(results)
+        headers: corsHeaders,
+        body: responseBody
       };
     } catch (error) {
       console.log('Direct Google search failed:', error.message);
@@ -104,13 +118,15 @@ exports.handler = async (event, context) => {
             }
           ],
           query,
-          page,
+          page: parseInt(page),
+          totalResults: 2,
+          hasNextPage: false,
           note: "Daily quota of 100 searches exceeded. Try again tomorrow or search directly on Google."
         };
         
         return {
           statusCode: 200,
-          headers,
+          headers: corsHeaders,
           body: JSON.stringify(quotaResults)
         };
       }
@@ -147,18 +163,24 @@ exports.handler = async (event, context) => {
 
     return {
       statusCode: 200,
-      headers,
+      headers: corsHeaders,
       body: JSON.stringify(fallbackResults)
     };
   } catch (error) {
     console.error('Web search error:', error);
+    
+    // Ensure we always return valid JSON
+    const errorResponse = { 
+      error: 'Web search failed',
+      details: error.message,
+      query: event.queryStringParameters?.q || 'unknown',
+      results: []
+    };
+    
     return {
       statusCode: 500,
-      headers,
-      body: JSON.stringify({ 
-        error: 'Web search failed',
-        details: error.message 
-      })
+      headers: corsHeaders,
+      body: JSON.stringify(errorResponse)
     };
   }
 };
