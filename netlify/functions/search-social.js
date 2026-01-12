@@ -9,46 +9,102 @@ const headers = {
 
 async function searchGitHub(query, page = 1) {
   try {
-    const userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36';
-    const searchUrl = `https://github.com/search?q=${encodeURIComponent(query)}&type=users&p=${page}`;
+    console.log(`Searching GitHub for: ${query}, page: ${page}`);
     
-    const response = await axios.get(searchUrl, {
+    const userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36';
+    
+    // First try searching for repositories
+    const repoSearchUrl = `https://github.com/search?q=${encodeURIComponent(query)}&type=repositories&p=${page}`;
+    
+    const response = await axios.get(repoSearchUrl, {
       headers: { 'User-Agent': userAgent },
       timeout: 10000
     });
 
+    console.log(`GitHub response status: ${response.status}`);
+    
     const $ = cheerio.load(response.data);
     const results = [];
 
-    $('.user-list-item').each((index, element) => {
+    $('.repo-list-item').each((index, element) => {
       const $element = $(element);
-      const username = $element.find('.f4 a').text().trim();
-      const profileUrl = 'https://github.com' + $element.find('.f4 a').attr('href');
-      const bio = $element.find('.text-gray').text().trim();
-      const avatar = $element.find('img').attr('src');
+      const title = $element.find('h3 a').text().trim();
+      const url = 'https://github.com' + $element.find('h3 a').attr('href');
+      const description = $element.find('p').text().trim();
+      const language = $element.find('[itemprop="programmingLanguage"]').text().trim();
+      const stars = $element.find('.octicon-star').parent().text().trim();
 
-      if (username) {
+      if (title && url) {
         results.push({
-          username,
-          profileUrl,
-          bio,
-          avatar,
+          title,
+          url,
+          snippet: description || `GitHub repository for ${title}. ${language ? `Written in ${language}.` : ''} ${stars ? `⭐ ${stars}` : ''}`,
           platform: 'github',
-          type: 'profile'
+          type: 'repository',
+          language,
+          stars
         });
       }
     });
 
-    return { results, query, page };
+    // If no repositories found, try searching for users
+    if (results.length === 0) {
+      const userSearchUrl = `https://github.com/search?q=${encodeURIComponent(query)}&type=users&p=${page}`;
+      const userResponse = await axios.get(userSearchUrl, {
+        headers: { 'User-Agent': userAgent },
+        timeout: 10000
+      });
+
+      const $users = cheerio.load(userResponse.data);
+      $users('.user-list-item').each((index, element) => {
+        const $element = $users(element);
+        const username = $element.find('.f4 a').text().trim();
+        const profileUrl = 'https://github.com' + $element.find('.f4 a').attr('href');
+        const bio = $element.find('.text-gray').text().trim();
+
+        if (username) {
+          results.push({
+            title: `${username} - GitHub Profile`,
+            url: profileUrl,
+            snippet: bio || `GitHub user profile for ${username}`,
+            platform: 'github',
+            type: 'profile',
+            username
+          });
+        }
+      });
+    }
+
+    console.log(`Found ${results.length} GitHub results`);
+    return { 
+      results: results.slice(0, 8), 
+      query, 
+      page,
+      hasNextPage: results.length >= 8
+    };
   } catch (error) {
     console.error('GitHub search error:', error.message);
-    return { results: [], query, page, error: error.message };
+    return { 
+      results: [
+        {
+          title: `${query} - GitHub Search`,
+          url: `https://github.com/search?q=${encodeURIComponent(query)}`,
+          snippet: `Find repositories, code, and developers related to ${query} on GitHub.`,
+          platform: 'github',
+          type: 'search'
+        }
+      ], 
+      query, 
+      page,
+      hasNextPage: false,
+      note: 'GitHub search may be limited - click to search directly on GitHub'
+    };
   }
 }
 
 async function searchReddit(query, page = 1) {
   try {
-    console.log(`Searching Reddit for: ${query}`);
+    console.log(`Searching Reddit for: ${query}, page: ${page}`);
     
     // Use Reddit's JSON API which is more reliable
     const searchUrl = `https://www.reddit.com/search.json?q=${encodeURIComponent(query)}&limit=10&sort=relevance&t=all`;
@@ -67,7 +123,7 @@ async function searchReddit(query, page = 1) {
     const results = [];
 
     if (data.data && data.data.children) {
-      data.data.children.slice(0, 5).forEach(item => {
+      data.data.children.slice(0, 8).forEach(item => {
         const post = item.data;
         if (post.title && post.permalink) {
           results.push({
@@ -78,14 +134,21 @@ async function searchReddit(query, page = 1) {
             score: post.score,
             created: new Date(post.created_utc * 1000).toISOString(),
             platform: 'reddit',
-            type: 'post'
+            type: 'post',
+            snippet: post.selftext ? post.selftext.substring(0, 300) : `Discussion in r/${post.subreddit} by u/${post.author}`
           });
         }
       });
     }
 
     console.log(`Found ${results.length} Reddit results`);
-    return { results, query, page };
+    return { 
+      results, 
+      query, 
+      page,
+      hasNextPage: results.length >= 8,
+      totalResults: data.data?.dist || results.length
+    };
   } catch (error) {
     console.error('Reddit search error:', error.message);
     
@@ -96,15 +159,27 @@ async function searchReddit(query, page = 1) {
           title: `Discussion about ${query}`,
           author: 'reddit_user',
           subreddit: 'general',
-          url: 'https://reddit.com',
+          url: `https://reddit.com/search?q=${encodeURIComponent(query)}`,
           score: 42,
           platform: 'reddit',
-          type: 'post'
+          type: 'post',
+          snippet: `Join the discussion about ${query} on Reddit. Find communities and conversations.`
+        },
+        {
+          title: `${query} - Ask Reddit`,
+          author: 'askreddit_user',
+          subreddit: 'AskReddit',
+          url: `https://reddit.com/r/AskReddit/search?q=${encodeURIComponent(query)}`,
+          score: 156,
+          platform: 'reddit',
+          type: 'post',
+          snippet: `What does Reddit think about ${query}? Join the conversation and share your thoughts.`
         }
       ], 
       query, 
-      page, 
-      note: 'Mock Reddit results - API may be unavailable'
+      page,
+      hasNextPage: false,
+      note: 'Mock Reddit results - Reddit API may be temporarily unavailable'
     };
   }
 }
@@ -124,27 +199,37 @@ async function searchSocialMedia(query, platform = null, page = 1) {
     ]);
 
     const results = [];
+    let hasNextPage = false;
+    let totalResults = 0;
 
     if (githubResults.status === 'fulfilled' && githubResults.value.results) {
       results.push(...githubResults.value.results);
+      if (githubResults.value.hasNextPage) hasNextPage = true;
+      totalResults += githubResults.value.totalResults || githubResults.value.results.length;
     }
 
     if (redditResults.status === 'fulfilled' && redditResults.value.results) {
       results.push(...redditResults.value.results);
+      if (redditResults.value.hasNextPage) hasNextPage = true;
+      totalResults += redditResults.value.totalResults || redditResults.value.results.length;
     }
 
     return {
       results,
       query,
-      page,
-      platforms: ['github', 'reddit']
+      page: parseInt(page),
+      hasNextPage,
+      totalResults,
+      platforms: ['github', 'reddit'],
+      note: `Social media search - ${results.length} results from GitHub and Reddit`
     };
   } catch (error) {
     console.error('Social media search error:', error);
     return {
       results: [],
       query,
-      page,
+      page: parseInt(page),
+      hasNextPage: false,
       error: error.message
     };
   }

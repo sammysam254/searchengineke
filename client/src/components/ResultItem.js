@@ -16,7 +16,8 @@ const ResultItem = ({ result }) => {
       reddit: '#ff4500',
       twitter: '#1da1f2',
       linkedin: '#0077b5',
-      web: '#34a853'
+      web: '#34a853',
+      google: '#4285f4'
     };
     return colors[platform] || '#666';
   };
@@ -26,17 +27,31 @@ const ResultItem = ({ result }) => {
       <div className="result-header">
         <a 
           href={result.url || result.profileUrl} 
-          target="_blank" 
-          rel="noopener noreferrer"
           className="result-title"
+          // Remove target="_blank" and rel="noopener noreferrer" to open in same tab
         >
           {result.title || result.username || 'Untitled'}
         </a>
         
-        {result.platform && (
+        {result.source && (
           <span 
             className="result-platform"
-            style={{ backgroundColor: getPlatformColor(result.platform) + '20', color: getPlatformColor(result.platform) }}
+            style={{ 
+              backgroundColor: getPlatformColor(result.source) + '20', 
+              color: getPlatformColor(result.source) 
+            }}
+          >
+            {result.source}
+          </span>
+        )}
+        
+        {result.platform && result.platform !== result.source && (
+          <span 
+            className="result-platform"
+            style={{ 
+              backgroundColor: getPlatformColor(result.platform) + '20', 
+              color: getPlatformColor(result.platform) 
+            }}
           >
             {result.platform}
           </span>

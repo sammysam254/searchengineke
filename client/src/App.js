@@ -9,7 +9,7 @@ function App() {
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('all');
 
-  const handleSearch = async (query, searchType) => {
+  const handleSearch = async (query, searchType, page = 1) => {
     setLoading(true);
     setError(null);
     setActiveTab(searchType);
@@ -18,17 +18,17 @@ function App() {
       // Try the main search first, then fallback to simple search
       let apiUrl;
       if (process.env.NODE_ENV === 'production') {
-        apiUrl = `/.netlify/functions/search-${searchType}?q=${encodeURIComponent(query)}`;
+        apiUrl = `/.netlify/functions/search-${searchType}?q=${encodeURIComponent(query)}&page=${page}`;
       } else {
-        apiUrl = `/api/search/${searchType}?q=${encodeURIComponent(query)}`;
+        apiUrl = `/api/search/${searchType}?q=${encodeURIComponent(query)}&page=${page}`;
       }
       
       console.log('Calling API:', apiUrl);
       let response = await fetch(apiUrl);
       let data = await response.json();
       
-      // If main search fails, try simple search
-      if (!response.ok || data.error) {
+      // If main search fails, try simple search (only for page 1)
+      if ((!response.ok || data.error) && page === 1) {
         console.log('Main search failed, trying simple search...');
         const simpleUrl = process.env.NODE_ENV === 'production' 
           ? `/.netlify/functions/search-simple?q=${encodeURIComponent(query)}`
@@ -70,6 +70,7 @@ function App() {
             results={results} 
             activeTab={activeTab}
             onTabChange={setActiveTab}
+            onSearch={handleSearch}
           />
         )}
       </div>

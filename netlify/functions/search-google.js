@@ -9,12 +9,12 @@ const headers = {
 
 // Google Custom Search implementation
 async function searchGoogle(query, page = 1) {
-  const apiKey = process.env.GOOGLE_API_KEY || 'AIzaSyBaBxSWkK54Q5QRhSZ3MgOkuGMOeevzpjM';
-  const searchEngineId = process.env.GOOGLE_SEARCH_ENGINE_ID || '9665ae5d79a464466';
+  // Hardcoded credentials for Netlify free plan
+  const apiKey = 'AIzaSyBaBxSWkK54Q5QRhSZ3MgOkuGMOeevzpjM';
+  const searchEngineId = '9665ae5d79a464466';
   
   console.log(`Google search for: ${query}, page: ${page}`);
-  console.log(`API Key: ${apiKey ? 'Present' : 'Missing'}`);
-  console.log(`Search Engine ID: ${searchEngineId}`);
+  console.log(`Using hardcoded API credentials`);
 
   try {
     const startIndex = (page - 1) * 10 + 1;
@@ -25,7 +25,8 @@ async function searchGoogle(query, page = 1) {
     const response = await axios.get(url, { 
       timeout: 15000,
       headers: {
-        'User-Agent': 'SearchEngine/1.0'
+        'User-Agent': 'SearchEngine/1.0',
+        'Accept': 'application/json'
       }
     });
     
@@ -61,28 +62,38 @@ async function searchGoogle(query, page = 1) {
     let setupInstructions = [];
     
     if (error.response?.status === 403) {
-      errorMessage = 'Google API quota exceeded';
+      errorMessage = 'Google API quota exceeded (100 searches/day limit)';
       setupInstructions = [
         {
-          title: "Daily Quota Exceeded (100 searches/day)",
+          title: "Daily Quota Exceeded",
           url: "https://console.cloud.google.com/apis/api/customsearch.googleapis.com/quotas",
-          snippet: "You've used your 100 free Google searches for today. The quota resets at midnight Pacific Time. Upgrade to paid plan for more searches.",
+          snippet: "You've used your 100 free Google searches for today. The quota resets at midnight Pacific Time. Try again tomorrow or upgrade to a paid plan.",
           source: 'error'
         },
         {
-          title: "Check Your Usage",
-          url: "https://console.cloud.google.com/apis/api/customsearch.googleapis.com/metrics",
-          snippet: "Monitor your API usage and see when your quota will reset. Consider upgrading if you need more than 100 searches per day.",
+          title: `Search "${query}" on Google directly`,
+          url: "https://www.google.com/search?q=" + encodeURIComponent(query),
+          snippet: "Click here to search directly on Google while we wait for the API quota to reset.",
           source: 'error'
         }
       ];
     } else if (error.response?.status === 400) {
-      errorMessage = 'Invalid API configuration';
+      errorMessage = 'Invalid API request';
       setupInstructions = [
         {
-          title: "API Configuration Error",
+          title: "API Configuration Issue",
           url: "https://console.cloud.google.com/apis/api/customsearch.googleapis.com",
-          snippet: "Please verify your Google API key is valid and the Custom Search API is enabled in your Google Cloud Console.",
+          snippet: "There may be an issue with the API configuration. Please check the Google Cloud Console.",
+          source: 'error'
+        }
+      ];
+    } else if (error.code === 'ENOTFOUND' || error.code === 'ETIMEDOUT') {
+      errorMessage = 'Network connection issue';
+      setupInstructions = [
+        {
+          title: `Search for "${query}" - Network Error`,
+          url: "https://www.google.com/search?q=" + encodeURIComponent(query),
+          snippet: "There was a network issue connecting to Google's API. Click here to search directly on Google.",
           source: 'error'
         }
       ];
@@ -91,7 +102,7 @@ async function searchGoogle(query, page = 1) {
         {
           title: `Search for "${query}" - Temporary Error`,
           url: "https://www.google.com/search?q=" + encodeURIComponent(query),
-          snippet: "There was a temporary issue with the Google search API. You can search directly on Google using this link.",
+          snippet: "There was a temporary issue with the search API. You can search directly on Google using this link.",
           source: 'error'
         }
       ];
@@ -102,7 +113,7 @@ async function searchGoogle(query, page = 1) {
       query,
       page,
       error: errorMessage,
-      note: `Error: ${errorMessage}. ${setupInstructions.length > 0 ? 'See alternative options below.' : ''}`
+      note: `Error: ${errorMessage}. See alternative options below.`
     };
   }
 }
