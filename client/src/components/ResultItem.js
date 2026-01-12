@@ -22,13 +22,39 @@ const ResultItem = ({ result }) => {
     return colors[platform] || '#666';
   };
 
+  const handleLinkClick = (e) => {
+    // Show loading bar when clicking a link
+    const loadingBar = document.getElementById('top-loading-bar');
+    if (loadingBar) {
+      loadingBar.style.display = 'block';
+      loadingBar.style.width = '0%';
+      
+      // Animate loading bar
+      let width = 0;
+      const interval = setInterval(() => {
+        width += Math.random() * 30;
+        if (width > 90) width = 90; // Don't complete until page actually loads
+        loadingBar.style.width = width + '%';
+      }, 100);
+      
+      // Complete loading bar after a delay (simulating page load)
+      setTimeout(() => {
+        clearInterval(interval);
+        loadingBar.style.width = '100%';
+        setTimeout(() => {
+          loadingBar.style.display = 'none';
+        }, 500);
+      }, 1500);
+    }
+  };
+
   return (
     <div className="result-item">
       <div className="result-header">
         <a 
           href={result.url || result.profileUrl} 
           className="result-title"
-          // Remove target="_blank" and rel="noopener noreferrer" to open in same tab
+          onClick={handleLinkClick}
         >
           {result.title || result.username || 'Untitled'}
         </a>
@@ -42,18 +68,6 @@ const ResultItem = ({ result }) => {
             }}
           >
             {result.source}
-          </span>
-        )}
-        
-        {result.platform && result.platform !== result.source && (
-          <span 
-            className="result-platform"
-            style={{ 
-              backgroundColor: getPlatformColor(result.platform) + '20', 
-              color: getPlatformColor(result.platform) 
-            }}
-          >
-            {result.platform}
           </span>
         )}
       </div>

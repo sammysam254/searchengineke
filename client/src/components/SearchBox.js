@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 const SearchBox = ({ onSearch }) => {
   const [query, setQuery] = useState('');
 
-  const handleSubmit = (e, searchType = 'all') => {
+  const handleSubmit = (e, searchType = 'web') => {
     e.preventDefault();
     if (query.trim()) {
       onSearch(query.trim(), searchType);
@@ -12,17 +12,17 @@ const SearchBox = ({ onSearch }) => {
 
   const handleKeyPress = (e) => {
     if (e.key === 'Enter') {
-      handleSubmit(e, 'all');
+      handleSubmit(e, 'web');
     }
   };
 
   return (
     <div className="search-container">
-      <form onSubmit={(e) => handleSubmit(e, 'all')}>
+      <form onSubmit={(e) => handleSubmit(e, 'web')}>
         <input
           type="text"
           className="search-input"
-          placeholder="Search the web and social media..."
+          placeholder="Search the web..."
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyPress={handleKeyPress}
@@ -32,23 +32,16 @@ const SearchBox = ({ onSearch }) => {
           <button 
             type="button"
             className="search-btn"
-            onClick={(e) => handleSubmit(e, 'all')}
+            onClick={(e) => handleSubmit(e, 'web')}
           >
-            Search All
+            Google Search
           </button>
           <button 
             type="button"
             className="search-btn secondary"
             onClick={(e) => handleSubmit(e, 'web')}
           >
-            Web Only
-          </button>
-          <button 
-            type="button"
-            className="search-btn secondary"
-            onClick={(e) => handleSubmit(e, 'social')}
-          >
-            Social Media
+            I'm Feeling Lucky
           </button>
         </div>
       </form>

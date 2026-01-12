@@ -48,10 +48,8 @@ async function searchGoogle(query, page = 1) {
       query,
       page: parseInt(page),
       totalResults: parseInt(data.searchInformation?.totalResults || 0),
-      searchTime: data.searchInformation?.searchTime,
       hasNextPage: results.length === 10,
-      source: 'google',
-      note: `Powered by Google Custom Search API - ${results.length} results found in ${data.searchInformation?.searchTime} seconds`
+      source: 'google'
     };
   } catch (error) {
     console.error('Google search error:', error.message);

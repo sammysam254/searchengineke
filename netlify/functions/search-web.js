@@ -41,9 +41,7 @@ async function searchGoogleDirect(query, page = 1) {
       query,
       page: parseInt(page),
       totalResults: parseInt(data.searchInformation?.totalResults || 0),
-      searchTime: data.searchInformation?.searchTime,
-      hasNextPage: results.length === 10,
-      note: `Google Search API - ${results.length} results in ${data.searchInformation?.searchTime}s`
+      hasNextPage: results.length === 10
     };
   } catch (error) {
     console.error('Direct Google search error:', error.message);
