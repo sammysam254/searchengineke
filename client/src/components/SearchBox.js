@@ -3,16 +3,16 @@ import React, { useState } from 'react';
 const SearchBox = ({ onSearch }) => {
   const [query, setQuery] = useState('');
 
-  const handleSubmit = (e, searchType = 'web') => {
+  const handleSubmit = (e) => {
     e.preventDefault();
     if (query.trim()) {
-      onSearch(query.trim(), searchType);
+      onSearch(query.trim(), 1); // Always start with page 1
     }
   };
 
   const handleKeyPress = (e) => {
     if (e.key === 'Enter') {
-      handleSubmit(e, 'web');
+      handleSubmit(e);
     }
   };
 
@@ -29,12 +29,12 @@ const SearchBox = ({ onSearch }) => {
       'Healthy lifestyle tips'
     ];
     const randomSearch = luckySearches[Math.floor(Math.random() * luckySearches.length)];
-    onSearch(randomSearch, 'web');
+    onSearch(randomSearch, 1); // Always start with page 1
   };
 
   return (
     <div className="search-container">
-      <form onSubmit={(e) => handleSubmit(e, 'web')}>
+      <form onSubmit={handleSubmit}>
         <div className="search-input-container">
           <span className="search-icon">🔍</span>
           <input
@@ -50,9 +50,8 @@ const SearchBox = ({ onSearch }) => {
         
         <div className="search-buttons">
           <button 
-            type="button"
+            type="submit"
             className="search-btn primary"
-            onClick={(e) => handleSubmit(e, 'web')}
           >
             <span className="btn-icon">🚀</span>
             Infinitum Search

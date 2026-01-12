@@ -17,7 +17,7 @@ async function searchGoogleDirect(query, page = 1) {
     const startIndex = (page - 1) * 10 + 1;
     const url = `https://www.googleapis.com/customsearch/v1?key=${apiKey}&cx=${searchEngineId}&q=${encodeURIComponent(query)}&start=${startIndex}`;
     
-    console.log(`Direct Google search for: ${query}`);
+    console.log(`Direct Google search for: ${query}, page: ${page}`);
     
     const response = await axios.get(url, { 
       timeout: 15000,
