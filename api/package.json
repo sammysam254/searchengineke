@@ -1,0 +1,12 @@
+{
+  "name": "infinitum-search-api",
+  "version": "1.0.0",
+  "description": "INFINITUM Search Engine API Functions for Vercel",
+  "main": "search-web.js",
+  "dependencies": {
+    "axios": "^1.6.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
