@@ -202,21 +202,87 @@
   50% { background-position: 100% 50%; }
 }
 
-/* Platform Indicator */
-.platform-indicator {
-  text-align: center;
-  padding: 15px;
-  margin-top: 20px;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 15px;
-  color: rgba(255, 255, 255, 0.8);
-  font-size: 14px;
-  font-weight: 500;
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+/* Contact Ticker - Continuous Moving Text */
+.contact-ticker {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 45px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+  background-size: 200% 200%;
+  animation: gradientMove 8s ease infinite;
+  overflow: hidden;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  box-shadow: 0 -2px 15px rgba(0,0,0,0.2);
+  cursor: pointer;
+  transition: all 0.3s ease;
 }
 
-.platform-icon {
-  margin-right: 8px;
+.contact-ticker:hover {
+  height: 50px;
+  box-shadow: 0 -4px 20px rgba(0,0,0,0.3);
+}
+
+.ticker-content {
+  display: flex;
+  white-space: nowrap;
+  animation: tickerMove 25s linear infinite;
+  color: white;
   font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.4);
+  text-transform: uppercase;
+}
+
+@keyframes tickerMove {
+  0% {
+    transform: translateX(100vw);
+  }
+  100% {
+    transform: translateX(-100%);
+  }
+}
+
+@keyframes gradientMove {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+/* Hover effect for ticker */
+.contact-ticker:hover .ticker-content {
+  animation-play-state: paused;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.6);
+}
+
+/* Add padding to body to account for fixed ticker */
+body {
+  padding-bottom: 45px;
+}
+
+/* Responsive design for mobile */
+@media (max-width: 768px) {
+  .ticker-content {
+    font-size: 14px;
+    letter-spacing: 1px;
+  }
+  
+  .contact-ticker {
+    height: 40px;
+  }
+  
+  .contact-ticker:hover {
+    height: 42px;
+  }
+  
+  body {
+    padding-bottom: 40px;
+  }
 }

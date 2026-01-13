@@ -140,21 +140,20 @@ function App() {
         {error && <div className="error">Error: {error}</div>}
         
         {results && !loading && (
-          <>
-            <SearchResults 
-              results={results} 
-              activeTab="web"
-              onTabChange={() => {}}
-              onSearch={handleSearch}
-            />
-            {results.platformInfo && (
-              <div className="platform-indicator">
-                <span className="platform-icon">{results.platformInfo.icon}</span>
-                Powered by {results.platformInfo.name}
-              </div>
-            )}
-          </>
+          <SearchResults 
+            results={results} 
+            activeTab="web"
+            onTabChange={() => {}}
+            onSearch={handleSearch}
+          />
         )}
+      </div>
+      
+      {/* Contact Ticker - Always Visible */}
+      <div className="contact-ticker" onClick={() => window.open('tel:0707116562', '_self')}>
+        <div className="ticker-content">
+          Designed by Sam • Contact 0707116562 for any software • Designed by Sam • Contact 0707116562 for any software • Designed by Sam • Contact 0707116562 for any software • 
+        </div>
       </div>
     </div>
   );
