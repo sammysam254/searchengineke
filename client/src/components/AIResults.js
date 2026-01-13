@@ -23,7 +23,12 @@ const AIResults = ({ results, onSearch }) => {
         <div className="ai-avatar">🤖</div>
         <div className="ai-info">
           <h3>INFINITUM AI</h3>
-          <p>Powered by advanced AI models</p>
+          <p>
+            {results.searchResultsAnalyzed 
+              ? `Analyzed ${results.searchResultsAnalyzed} search results`
+              : 'Powered by advanced AI analysis'
+            }
+          </p>
         </div>
         <div className="ai-status">
           <span className="status-indicator active"></span>

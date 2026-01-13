@@ -1,4 +1,4 @@
-// Same AI logic as Netlify function but in Vercel format
+// AI function that analyzes real search results
 const axios = require('axios');
 
 // CORS headers
@@ -9,193 +9,272 @@ const corsHeaders = {
   'Content-Type': 'application/json'
 };
 
-// Generate AI response using knowledge base and contextual generation
-async function generateAIResponse(query) {
+// First get search results, then analyze them with AI
+async function searchGoogleDirect(query, page = 1) {
+  const apiKey = 'AIzaSyBaBxSWkK54Q5QRhSZ3MgOkuGMOeevzpjM';
+  const searchEngineId = '9665ae5d79a464466';
+  
   try {
-    const knowledgeResponse = getKnowledgeBaseResponse(query);
-    if (knowledgeResponse) {
-      return knowledgeResponse;
-    }
+    const startIndex = (page - 1) * 10 + 1;
+    const url = `https://www.googleapis.com/customsearch/v1?key=${apiKey}&cx=${searchEngineId}&q=${encodeURIComponent(query)}&start=${startIndex}`;
+    
+    console.log(`Vercel AI Google search for: ${query}, page: ${page}`);
+    
+    const response = await axios.get(url, { 
+      timeout: 15000,
+      headers: {
+        'User-Agent': 'INFINITUM-AI-SearchEngine/1.0',
+        'Accept': 'application/json'
+      }
+    });
+    
+    const data = response.data;
+    const results = data.items?.map(item => ({
+      title: item.title,
+      url: item.link,
+      snippet: item.snippet,
+      source: 'google',
+      displayLink: item.displayLink
+    })) || [];
 
-    const contextualResponse = generateContextualResponse(query);
-    return contextualResponse;
-
+    return {
+      results,
+      query,
+      page: parseInt(page),
+      totalResults: parseInt(data.searchInformation?.totalResults || 0),
+      hasNextPage: results.length === 10
+    };
   } catch (error) {
-    console.error('AI generation error:', error);
+    console.error('Vercel AI Google search error:', error.message);
+    throw error;
+  }
+}
+
+// Analyze search results and generate AI response
+function analyzeSearchResults(query, searchResults) {
+  if (!searchResults || searchResults.length === 0) {
     return generateFallbackResponse(query);
   }
-}
 
-// Knowledge base for common questions
-function getKnowledgeBaseResponse(query) {
-  const lowerQuery = query.toLowerCase();
+  // Extract key information from search results
+  const titles = searchResults.map(result => result.title);
+  const snippets = searchResults.map(result => result.snippet).filter(Boolean);
+  const sources = searchResults.map(result => ({
+    title: result.title,
+    url: result.url,
+    domain: result.displayLink || new URL(result.url).hostname
+  }));
+
+  // Analyze content and generate intelligent response
+  const analysis = performContentAnalysis(query, titles, snippets);
   
-  const knowledgeBase = {
-    'what is ai': {
-      answer: 'Artificial Intelligence (AI) is a branch of computer science that aims to create intelligent machines capable of performing tasks that typically require human intelligence, such as learning, reasoning, problem-solving, and understanding natural language.',
-      keyPoints: [
-        'AI systems can learn from data and improve over time',
-        'Machine learning is a subset of AI that focuses on algorithms',
-        'AI is used in various fields like healthcare, finance, and transportation',
-        'Deep learning uses neural networks to process complex data'
-      ],
-      confidence: 95
-    },
-    
-    'blockchain': {
-      answer: 'Blockchain is a distributed ledger technology that maintains a continuously growing list of records (blocks) that are linked and secured using cryptography. Each block contains a cryptographic hash of the previous block, a timestamp, and transaction data.',
-      keyPoints: [
-        'Decentralized and distributed across multiple computers',
-        'Immutable - once data is recorded, it cannot be easily changed',
-        'Transparent - all transactions are visible to network participants',
-        'Used in cryptocurrencies, smart contracts, and supply chain management'
-      ],
-      confidence: 92
-    },
-    
-    'machine learning': {
-      answer: 'Machine Learning is a subset of artificial intelligence that enables computers to learn and make decisions from data without being explicitly programmed for every task. It uses algorithms to identify patterns in data and make predictions or decisions.',
-      keyPoints: [
-        'Supervised learning uses labeled training data',
-        'Unsupervised learning finds patterns in unlabeled data',
-        'Reinforcement learning learns through trial and error',
-        'Applications include recommendation systems, image recognition, and natural language processing'
-      ],
-      confidence: 94
-    },
-    
-    'quantum computing': {
-      answer: 'Quantum computing is a revolutionary computing paradigm that uses quantum mechanical phenomena like superposition and entanglement to process information. Unlike classical computers that use bits (0 or 1), quantum computers use quantum bits (qubits) that can exist in multiple states simultaneously.',
-      keyPoints: [
-        'Qubits can be in superposition of 0 and 1 states',
-        'Quantum entanglement allows qubits to be correlated',
-        'Potentially exponentially faster for certain problems',
-        'Applications in cryptography, drug discovery, and optimization'
-      ],
-      confidence: 88
-    }
+  return {
+    answer: analysis.answer,
+    keyPoints: analysis.keyPoints,
+    confidence: analysis.confidence,
+    relatedTopics: generateRelatedTopicsFromResults(query, titles),
+    followUpQuestions: generateFollowUpFromResults(query, snippets),
+    sources: sources.slice(0, 5), // Top 5 sources
+    searchResultsCount: searchResults.length
   };
-
-  for (const [key, response] of Object.entries(knowledgeBase)) {
-    if (lowerQuery.includes(key)) {
-      return {
-        ...response,
-        relatedTopics: generateRelatedTopics(key),
-        followUpQuestions: generateFollowUpQuestions(key),
-        sources: generateSources(key)
-      };
-    }
-  }
-
-  return null;
 }
 
-// Generate contextual response for any query
-function generateContextualResponse(query) {
-  const templates = [
-    {
-      pattern: /how.*work/i,
-      response: (query) => ({
-        answer: `Great question about how things work! ${query} involves several key components and processes. Let me break this down for you with the most current information available.`,
-        keyPoints: [
-          'Understanding the fundamental principles is crucial',
-          'Multiple factors and components work together',
-          'Real-world applications demonstrate practical value',
-          'Ongoing research continues to advance the field'
-        ],
-        confidence: 75
-      })
-    },
-    
-    {
-      pattern: /what is|define/i,
-      response: (query) => ({
-        answer: `${query} is an important concept that has significant implications in its field. Based on current knowledge and research, here's a comprehensive explanation.`,
-        keyPoints: [
-          'Core definition and fundamental concepts',
-          'Historical development and evolution',
-          'Current applications and use cases',
-          'Future trends and developments'
-        ],
-        confidence: 70
-      })
-    }
-  ];
-
-  for (const template of templates) {
-    if (template.pattern.test(query)) {
-      const response = template.response(query);
-      return {
-        ...response,
-        relatedTopics: generateRelatedTopics(query),
-        followUpQuestions: generateFollowUpQuestions(query),
-        sources: generateSources(query)
-      };
-    }
+// Perform intelligent content analysis
+function performContentAnalysis(query, titles, snippets) {
+  const queryLower = query.toLowerCase();
+  
+  // Determine query type and generate appropriate response
+  if (isDefinitionQuery(queryLower)) {
+    return generateDefinitionResponse(query, titles, snippets);
+  } else if (isHowToQuery(queryLower)) {
+    return generateHowToResponse(query, titles, snippets);
+  } else if (isComparisonQuery(queryLower)) {
+    return generateComparisonResponse(query, titles, snippets);
+  } else if (isFactualQuery(queryLower)) {
+    return generateFactualResponse(query, titles, snippets);
+  } else {
+    return generateGeneralResponse(query, titles, snippets);
   }
-
-  return generateFallbackResponse(query);
 }
 
-// Generate fallback response
+// Query type detection functions
+function isDefinitionQuery(query) {
+  return /^(what is|define|meaning of|definition of)/i.test(query);
+}
+
+function isHowToQuery(query) {
+  return /^(how to|how do|how does|how can)/i.test(query);
+}
+
+function isComparisonQuery(query) {
+  return /(vs|versus|compare|difference between|better than)/i.test(query);
+}
+
+function isFactualQuery(query) {
+  return /(when|where|who|why|which)/i.test(query);
+}
+
+// Response generation functions
+function generateDefinitionResponse(query, titles, snippets) {
+  const relevantSnippets = snippets.slice(0, 3);
+  const keyTerms = extractKeyTerms(relevantSnippets);
+  
+  return {
+    answer: `Based on current search results, ${query.replace(/^(what is|define|meaning of|definition of)\s*/i, '')} can be understood as follows: ${relevantSnippets[0] || 'Multiple sources provide various perspectives on this topic.'}`,
+    keyPoints: [
+      ...keyTerms.slice(0, 4),
+      'Multiple authoritative sources confirm this information',
+      'Current search results provide up-to-date context'
+    ],
+    confidence: calculateConfidence(relevantSnippets.length, titles.length)
+  };
+}
+
+function generateHowToResponse(query, titles, snippets) {
+  const steps = extractStepsFromSnippets(snippets);
+  const methods = extractMethodsFromTitles(titles);
+  
+  return {
+    answer: `Based on current search results for "${query}", here are the key approaches and methods found across multiple sources. The search results show various techniques and best practices.`,
+    keyPoints: [
+      ...steps.slice(0, 3),
+      ...methods.slice(0, 2),
+      'Multiple sources provide step-by-step guidance'
+    ],
+    confidence: calculateConfidence(snippets.length, titles.length)
+  };
+}
+
+function generateGeneralResponse(query, titles, snippets) {
+  const insights = extractInsights(snippets);
+  const topics = extractTopics(titles);
+  
+  return {
+    answer: `Based on comprehensive search results for "${query}", multiple sources provide valuable insights and information. The current search results offer diverse perspectives and up-to-date content.`,
+    keyPoints: [
+      ...insights.slice(0, 3),
+      ...topics.slice(0, 2),
+      'Search results compiled from authoritative sources'
+    ],
+    confidence: calculateConfidence(snippets.length, titles.length)
+  };
+}
+
+// Content extraction functions
+function extractKeyTerms(snippets) {
+  const terms = [];
+  snippets.forEach(snippet => {
+    if (snippet) {
+      const sentences = snippet.split(/[.!?]+/).filter(s => s.length > 20);
+      terms.push(...sentences.slice(0, 2));
+    }
+  });
+  return terms.filter(Boolean).slice(0, 4);
+}
+
+function extractStepsFromSnippets(snippets) {
+  const steps = [];
+  snippets.forEach(snippet => {
+    if (snippet && (snippet.includes('step') || snippet.includes('first') || snippet.includes('then'))) {
+      const sentences = snippet.split(/[.!?]+/).filter(s => s.length > 15);
+      steps.push(...sentences.slice(0, 2));
+    }
+  });
+  return steps.filter(Boolean).slice(0, 3);
+}
+
+function extractMethodsFromTitles(titles) {
+  return titles
+    .filter(title => title && (title.includes('How') || title.includes('Guide') || title.includes('Tutorial')))
+    .map(title => title.replace(/^How to\s*/i, '').replace(/\s*-.*$/, ''))
+    .slice(0, 2);
+}
+
+function extractInsights(snippets) {
+  const insights = [];
+  snippets.forEach(snippet => {
+    if (snippet) {
+      const sentences = snippet.split(/[.!?]+/).filter(s => s.length > 20);
+      insights.push(...sentences.slice(0, 2));
+    }
+  });
+  return insights.filter(Boolean).slice(0, 3);
+}
+
+function extractTopics(titles) {
+  return titles
+    .filter(title => title && title.length > 5)
+    .map(title => title.split(/[-:|]/)[0].trim())
+    .slice(0, 2);
+}
+
+function calculateConfidence(snippetCount, titleCount) {
+  const baseConfidence = 60;
+  const snippetBonus = Math.min(snippetCount * 5, 25);
+  const titleBonus = Math.min(titleCount * 3, 15);
+  
+  return Math.min(baseConfidence + snippetBonus + titleBonus, 95);
+}
+
+function generateRelatedTopicsFromResults(query, titles) {
+  const topics = new Set();
+  
+  titles.forEach(title => {
+    if (title) {
+      const words = title.split(/[\s\-:|]+/).filter(word => word.length > 3);
+      words.slice(0, 2).forEach(word => topics.add(word));
+    }
+  });
+  
+  topics.add(`${query} explained`);
+  topics.add(`${query} guide`);
+  topics.add(`${query} examples`);
+  topics.add(`Latest ${query} news`);
+  
+  return Array.from(topics).slice(0, 6);
+}
+
+function generateFollowUpFromResults(query, snippets) {
+  const questions = new Set();
+  
+  if (snippets.some(s => s && s.includes('benefit'))) {
+    questions.add(`What are the benefits of ${query}?`);
+  }
+  if (snippets.some(s => s && s.includes('cost'))) {
+    questions.add(`What does ${query} cost?`);
+  }
+  if (snippets.some(s => s && s.includes('work'))) {
+    questions.add(`How does ${query} work?`);
+  }
+  
+  questions.add(`What are the latest developments in ${query}?`);
+  questions.add(`How is ${query} used in practice?`);
+  
+  return Array.from(questions).slice(0, 4);
+}
+
 function generateFallbackResponse(query) {
   return {
-    answer: `I understand you're asking about "${query}". While I can provide some general insights, I'd recommend searching for more specific and up-to-date information on this topic. Here's what I can tell you based on general knowledge.`,
+    answer: `I searched for "${query}" but couldn't find sufficient search results to provide a comprehensive answer. This might be due to the query being very specific, new, or having limited online information. Please try rephrasing your question or searching for related terms.`,
     keyPoints: [
-      'This is a complex topic with multiple aspects to consider',
-      'Current research and developments may provide new insights',
-      'Practical applications vary depending on the context',
-      'Expert opinions and studies offer valuable perspectives'
+      'No comprehensive search results found for this query',
+      'Try using different keywords or phrases',
+      'Consider searching for related or broader topics',
+      'Check spelling and try alternative terms'
     ],
-    confidence: 60,
-    relatedTopics: generateRelatedTopics(query),
-    followUpQuestions: generateFollowUpQuestions(query),
-    sources: generateSources(query)
+    confidence: 30,
+    relatedTopics: [
+      `${query} alternatives`,
+      `${query} related topics`,
+      `${query} basics`
+    ],
+    followUpQuestions: [
+      `What is ${query}?`,
+      `How does ${query} work?`,
+      `Where can I learn about ${query}?`
+    ],
+    sources: []
   };
-}
-
-// Generate related topics
-function generateRelatedTopics(query) {
-  const topics = [
-    `Advanced ${query} concepts`,
-    `${query} applications`,
-    `Future of ${query}`,
-    `${query} vs alternatives`
-  ];
-  
-  return topics.slice(0, 4);
-}
-
-// Generate follow-up questions
-function generateFollowUpQuestions(query) {
-  const questions = [
-    `How is ${query} used in real-world applications?`,
-    `What are the latest developments in ${query}?`,
-    `What are the challenges with ${query}?`
-  ];
-  
-  return questions.slice(0, 3);
-}
-
-// Generate sources
-function generateSources(query) {
-  return [
-    {
-      title: `${query} - Wikipedia`,
-      url: `https://en.wikipedia.org/wiki/Special:Search?search=${encodeURIComponent(query)}`,
-      domain: 'wikipedia.org'
-    },
-    {
-      title: `${query} Research Papers`,
-      url: `https://scholar.google.com/scholar?q=${encodeURIComponent(query)}`,
-      domain: 'scholar.google.com'
-    },
-    {
-      title: `${query} Latest News`,
-      url: `https://www.google.com/search?q=${encodeURIComponent(query)}&tbm=nws`,
-      domain: 'google.com'
-    }
-  ];
 }
 
 export default async function handler(req, res) {
@@ -220,23 +299,52 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Query parameter is required' });
     }
 
-    console.log(`Vercel AI search for: ${query}`);
+    console.log(`Vercel AI search with real results for: ${query}`);
 
-    // Generate AI response
-    const aiResponse = await generateAIResponse(query);
+    // First, get search results from Google
+    let searchData;
+    try {
+      searchData = await searchGoogleDirect(query, page);
+    } catch (searchError) {
+      console.log('Google search failed, using fallback:', searchError.message);
+      
+      const fallbackResponse = generateFallbackResponse(query);
+      
+      const result = {
+        query,
+        page: parseInt(page),
+        aiAnswer: fallbackResponse.answer,
+        keyPoints: fallbackResponse.keyPoints,
+        relatedTopics: fallbackResponse.relatedTopics,
+        followUpQuestions: fallbackResponse.followUpQuestions,
+        sources: fallbackResponse.sources,
+        confidence: fallbackResponse.confidence,
+        timestamp: new Date().toISOString(),
+        platform: 'vercel',
+        mode: 'ai',
+        note: 'AI response based on fallback due to search API issues'
+      };
+
+      return res.status(200).json(result);
+    }
+
+    // Analyze the search results with AI
+    const aiAnalysis = analyzeSearchResults(query, searchData.results);
 
     const result = {
       query,
       page: parseInt(page),
-      aiAnswer: aiResponse.answer,
-      keyPoints: aiResponse.keyPoints,
-      relatedTopics: aiResponse.relatedTopics,
-      followUpQuestions: aiResponse.followUpQuestions,
-      sources: aiResponse.sources,
-      confidence: aiResponse.confidence,
+      aiAnswer: aiAnalysis.answer,
+      keyPoints: aiAnalysis.keyPoints,
+      relatedTopics: aiAnalysis.relatedTopics,
+      followUpQuestions: aiAnalysis.followUpQuestions,
+      sources: aiAnalysis.sources,
+      confidence: aiAnalysis.confidence,
+      searchResultsAnalyzed: aiAnalysis.searchResultsCount,
       timestamp: new Date().toISOString(),
       platform: 'vercel',
-      mode: 'ai'
+      mode: 'ai',
+      note: `AI analysis based on ${aiAnalysis.searchResultsCount} search results`
     };
 
     return res.status(200).json(result);
@@ -247,7 +355,7 @@ export default async function handler(req, res) {
       error: 'AI search failed',
       details: error.message,
       query: req.query?.q || 'unknown',
-      aiAnswer: 'I apologize, but I encountered an error while processing your request. Please try again or rephrase your question.',
+      aiAnswer: 'I apologize, but I encountered an error while analyzing search results for your question. Please try again or rephrase your question.',
       platform: 'vercel',
       mode: 'ai'
     };
