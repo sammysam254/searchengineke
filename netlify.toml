@@ -1,7 +1,8 @@
 [build]
   base = "client"
   publish = "build"
-  command = "node verify-build.js && npm install && npm run build"
+  command = "node ../prebuild.js && node verify-build.js && npm install && npm run build"
+  functions = "../netlify/functions"
 
 [build.environment]
   NODE_VERSION = "18"

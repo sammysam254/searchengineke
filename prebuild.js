@@ -7,6 +7,7 @@ const clientDir = path.join(__dirname, 'client');
 const publicDir = path.join(clientDir, 'public');
 const indexPath = path.join(publicDir, 'index.html');
 const backupPath = path.join(publicDir, 'index.backup.html');
+const functionsDir = path.join(__dirname, 'netlify', 'functions');
 
 // Ensure client directory exists
 if (!fs.existsSync(clientDir)) {
@@ -32,6 +33,16 @@ if (!fs.existsSync(indexPath)) {
     }
 } else {
     console.log('✅ index.html found');
+}
+
+// Check Netlify functions directory
+if (!fs.existsSync(functionsDir)) {
+    console.error('❌ Netlify functions directory not found!');
+    process.exit(1);
+} else {
+    console.log('✅ Netlify functions directory found');
+    const functionFiles = fs.readdirSync(functionsDir);
+    console.log('📁 Function files:', functionFiles);
 }
 
 // List all files in public directory
