@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import SearchBox from './components/SearchBox';
+import AISearchBox from './components/AISearchBox';
 import SearchResults from './components/SearchResults';
+import AIResults from './components/AIResults';
 import TrendingSection from './components/TrendingSection';
 import { getApiEndpoint, getFallbackEndpoints, getPlatformInfo } from './utils/platformDetection';
 import './App.css';
@@ -10,19 +11,21 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [showTrending, setShowTrending] = useState(true);
+  const [isAIMode, setIsAIMode] = useState(false);
 
-  const handleSearch = async (query, page = 1) => {
+  const handleSearch = async (query, page = 1, mode = 'web') => {
     setLoading(true);
     setError(null);
     setShowTrending(false); // Hide trending when searching
 
     try {
-      // Use improved platform detection
-      const apiUrl = getApiEndpoint('search-web', query, page);
-      const fallbackUrls = getFallbackEndpoints('search-web', query, page);
+      // Determine endpoint based on mode
+      const endpoint = mode === 'ai' ? 'search-ai' : 'search-web';
+      const apiUrl = getApiEndpoint(endpoint, query, page);
+      const fallbackUrls = getFallbackEndpoints(endpoint, query, page);
       const platformInfo = getPlatformInfo();
       
-      console.log(`Calling API on ${platformInfo.name}:`, apiUrl);
+      console.log(`Calling ${mode.toUpperCase()} API on ${platformInfo.name}:`, apiUrl);
       
       // Try primary endpoint first
       let response = await fetch(apiUrl);
@@ -80,6 +83,7 @@ function App() {
       // Add platform info to results
       data.platformInfo = platformInfo;
       data.usedEndpoint = attemptedUrl;
+      data.searchMode = mode;
       
       console.log('Search results:', data);
       setResults(data);
@@ -90,6 +94,12 @@ function App() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleToggleAI = (aiMode) => {
+    setIsAIMode(aiMode);
+    setResults(null);
+    setError(null);
   };
 
   const handleLogoClick = () => {
@@ -119,16 +129,22 @@ function App() {
           <p className="tagline">Infinite Search. Infinite Possibilities.</p>
         </header>
         
-        <SearchBox onSearch={handleSearch} />
+        <AISearchBox 
+          onSearch={handleSearch} 
+          isAIMode={isAIMode}
+          onToggleAI={handleToggleAI}
+        />
         
-        {showTrending && !results && !loading && (
+        {showTrending && !results && !loading && !isAIMode && (
           <TrendingSection onSearch={handleSearch} />
         )}
         
         {loading && (
           <div className="loading-container">
             <div className="loading-spinner"></div>
-            <div className="loading-text">Searching the infinite web...</div>
+            <div className="loading-text">
+              {isAIMode ? 'AI is thinking...' : 'Searching the infinite web...'}
+            </div>
             <div className="loading-dots">
               <span></span>
               <span></span>
@@ -140,12 +156,19 @@ function App() {
         {error && <div className="error">Error: {error}</div>}
         
         {results && !loading && (
-          <SearchResults 
-            results={results} 
-            activeTab="web"
-            onTabChange={() => {}}
-            onSearch={handleSearch}
-          />
+          results.searchMode === 'ai' ? (
+            <AIResults 
+              results={results} 
+              onSearch={handleSearch}
+            />
+          ) : (
+            <SearchResults 
+              results={results} 
+              activeTab="web"
+              onTabChange={() => {}}
+              onSearch={handleSearch}
+            />
+          )
         )}
       </div>
       

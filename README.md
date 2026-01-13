@@ -12,12 +12,16 @@ A modern, beautiful search engine with 3D animated logo, trending searches, and 
 ## ✨ Features
 
 - 🎨 **Stunning 3D Animated Logo** - Floating infinity symbol with gradients
+- 🤖 **AI Mode** - Ask questions and get intelligent responses like Google's AI
 - 🔥 **Trending Searches** - Updates every hour with dynamic content
 - 🌟 **Suggested Websites** - Curated recommendations refreshed every 30 minutes
 - 🚀 **Beautiful Loading Animations** - Smooth spinners and progress bars
 - 📱 **Fully Responsive** - Works perfectly on all devices
 - ⚡ **Lightning Fast** - Optimized for performance
 - 🌐 **Multi-Platform** - Deploy on Netlify or Vercel
+- 🧠 **Smart AI Responses** - Knowledge base with contextual understanding
+- 💡 **Follow-up Questions** - AI suggests related queries
+- 📚 **Source Attribution** - Links to relevant sources and references
 
 ## 🚀 Quick Deploy
 

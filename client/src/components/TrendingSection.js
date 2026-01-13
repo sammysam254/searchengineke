@@ -87,7 +87,7 @@ const TrendingSection = ({ onSearch }) => {
   }, []);
 
   const handleTrendingClick = (search) => {
-    onSearch(search, 1); // Always start with page 1
+    onSearch(search, 1, 'web'); // Always start with page 1 and web mode
   };
 
   const formatTime = (date) => {

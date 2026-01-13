@@ -33,6 +33,9 @@
     "api/search-all.js": {
       "maxDuration": 30
     },
+    "api/search-ai.js": {
+      "maxDuration": 30
+    },
     "api/debug.js": {
       "maxDuration": 10
     },

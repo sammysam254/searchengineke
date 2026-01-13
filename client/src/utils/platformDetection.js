@@ -31,15 +31,12 @@ export const getApiEndpoint = (endpoint, query, page = 1) => {
       return `/api/${endpoint}?${queryParam}&${pageParam}`;
     
     case 'netlify':
-      // Use the working search-web function instead of test function
-      if (endpoint === 'search-web') {
-        return `/.netlify/functions/search-web?${queryParam}&${pageParam}`;
-      }
+      // Use the working search functions
       return `/.netlify/functions/${endpoint}?${queryParam}&${pageParam}`;
     
     case 'local':
     default:
-      return `/api/search/web?${queryParam}&${pageParam}`;
+      return `/api/search/${endpoint === 'search-ai' ? 'ai' : 'web'}?${queryParam}&${pageParam}`;
   }
 };
 
