@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import SearchBox from './components/SearchBox';
 import SearchResults from './components/SearchResults';
 import TrendingSection from './components/TrendingSection';
-import { getApiEndpoint, getPlatformInfo } from './utils/platformDetection';
+import { getApiEndpoint, getFallbackEndpoints, getPlatformInfo } from './utils/platformDetection';
 import './App.css';
 
 function App() {
@@ -19,32 +19,67 @@ function App() {
     try {
       // Use improved platform detection
       const apiUrl = getApiEndpoint('search-web', query, page);
+      const fallbackUrls = getFallbackEndpoints('search-web', query, page);
       const platformInfo = getPlatformInfo();
       
       console.log(`Calling API on ${platformInfo.name}:`, apiUrl);
       
+      // Try primary endpoint first
       let response = await fetch(apiUrl);
+      let attemptedUrl = apiUrl;
+      
+      // If primary fails and we have fallbacks, try them
+      if (!response.ok && fallbackUrls.length > 0) {
+        console.log('Primary endpoint failed, trying fallbacks...');
+        
+        for (const fallbackUrl of fallbackUrls) {
+          console.log('Trying fallback:', fallbackUrl);
+          try {
+            response = await fetch(fallbackUrl);
+            if (response.ok) {
+              attemptedUrl = fallbackUrl;
+              console.log('Fallback succeeded:', fallbackUrl);
+              break;
+            }
+          } catch (fallbackError) {
+            console.log('Fallback failed:', fallbackUrl, fallbackError.message);
+          }
+        }
+      }
       
       // Check if response is ok before trying to parse JSON
       if (!response.ok) {
         const errorText = await response.text();
         console.error('API Error Response:', errorText);
-        throw new Error(`HTTP ${response.status}: ${errorText}`);
+        throw new Error(`HTTP ${response.status}: All endpoints failed`);
       }
       
       // Try to parse JSON with error handling
       let data;
       try {
         const responseText = await response.text();
-        console.log('Raw response:', responseText);
+        console.log('Raw response:', responseText.substring(0, 200) + '...');
+        
+        // Check if response looks like HTML instead of JSON
+        if (responseText.trim().startsWith('<!doctype') || responseText.trim().startsWith('<html')) {
+          throw new Error('Server returned HTML instead of JSON - function not found');
+        }
+        
         data = JSON.parse(responseText);
       } catch (jsonError) {
         console.error('JSON Parse Error:', jsonError);
+        
+        // Provide helpful error message for HTML responses
+        if (jsonError.message.includes('HTML instead of JSON')) {
+          throw new Error('Search function not deployed correctly. Please check deployment.');
+        }
+        
         throw new Error('Invalid JSON response from server');
       }
       
       // Add platform info to results
       data.platformInfo = platformInfo;
+      data.usedEndpoint = attemptedUrl;
       
       console.log('Search results:', data);
       setResults(data);

@@ -31,15 +31,50 @@ export const getApiEndpoint = (endpoint, query, page = 1) => {
       return `/api/${endpoint}?${queryParam}&${pageParam}`;
     
     case 'netlify':
-      // Use simple test function for now due to JSON issues
+      // Use the working search-web function instead of test function
       if (endpoint === 'search-web') {
-        return `/.netlify/functions/search-simple-test?${queryParam}&${pageParam}`;
+        return `/.netlify/functions/search-web?${queryParam}&${pageParam}`;
       }
       return `/.netlify/functions/${endpoint}?${queryParam}&${pageParam}`;
     
     case 'local':
     default:
       return `/api/search/web?${queryParam}&${pageParam}`;
+  }
+};
+
+// Get fallback endpoints to try if primary fails
+export const getFallbackEndpoints = (endpoint, query, page = 1) => {
+  const platform = detectPlatform();
+  const encodedQuery = encodeURIComponent(query);
+  const pageParam = `page=${page}`;
+  const queryParam = `q=${encodedQuery}`;
+  
+  if (platform === 'netlify') {
+    // Try multiple Netlify functions in order of preference
+    return [
+      `/.netlify/functions/search-web?${queryParam}&${pageParam}`,
+      `/.netlify/functions/search-web-native?${queryParam}&${pageParam}`,
+      `/.netlify/functions/search-simple-test?${queryParam}&${pageParam}`,
+      `/.netlify/functions/test-search?${queryParam}&${pageParam}`
+    ];
+  }
+  
+  return []; // No fallbacks for other platforms
+};
+
+// Test if Netlify functions are deployed
+export const testNetlifyFunctions = async () => {
+  try {
+    const response = await fetch('/.netlify/functions/health-check');
+    if (response.ok) {
+      const data = await response.json();
+      return data;
+    }
+    return null;
+  } catch (error) {
+    console.error('Netlify health check failed:', error);
+    return null;
   }
 };
 
