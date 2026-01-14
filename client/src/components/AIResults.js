@@ -24,9 +24,10 @@ const AIResults = ({ results, onSearch }) => {
         <div className="ai-info">
           <h3>INFINITUM AI</h3>
           <p>
+            {results.aiModel && `Powered by ${results.aiModel} • `}
             {results.searchResultsAnalyzed 
               ? `Analyzed ${results.searchResultsAnalyzed} search results`
-              : 'Powered by advanced AI analysis'
+              : 'Advanced AI analysis'
             }
           </p>
         </div>

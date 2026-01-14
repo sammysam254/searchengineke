@@ -7,16 +7,18 @@ const headers = {
   'Content-Type': 'application/json'
 };
 
-// First get search results, then analyze them with AI
+const GOOGLE_API_KEY = 'AIzaSyBaBxSWkK54Q5QRhSZ3MgOkuGMOeevzpjM';
+const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent';
+
+// Get search results from Google
 async function searchGoogleDirect(query, page = 1) {
-  const apiKey = 'AIzaSyBaBxSWkK54Q5QRhSZ3MgOkuGMOeevzpjM';
   const searchEngineId = '9665ae5d79a464466';
   
   try {
     const startIndex = (page - 1) * 10 + 1;
-    const url = `https://www.googleapis.com/customsearch/v1?key=${apiKey}&cx=${searchEngineId}&q=${encodeURIComponent(query)}&start=${startIndex}`;
+    const url = `https://www.googleapis.com/customsearch/v1?key=${GOOGLE_API_KEY}&cx=${searchEngineId}&q=${encodeURIComponent(query)}&start=${startIndex}`;
     
-    console.log(`AI Google search for: ${query}, page: ${page}`);
+    console.log(`Google search for Gemini AI: ${query}, page: ${page}`);
     
     const response = await axios.get(url, { 
       timeout: 15000,
@@ -43,310 +45,144 @@ async function searchGoogleDirect(query, page = 1) {
       hasNextPage: results.length === 10
     };
   } catch (error) {
-    console.error('AI Google search error:', error.message);
+    console.error('Google search error:', error.message);
     throw error;
   }
 }
 
-// Analyze search results and generate AI response
-function analyzeSearchResults(query, searchResults) {
-  if (!searchResults || searchResults.length === 0) {
-    return generateFallbackResponse(query);
+// Use Gemini AI to analyze search results
+async function analyzeWithGemini(query, searchResults) {
+  try {
+    // Prepare context from search results
+    const searchContext = searchResults.map((result, index) => 
+      `[${index + 1}] ${result.title}\n${result.snippet}\nSource: ${result.displayLink}`
+    ).join('\n\n');
+
+    // Create prompt for Gemini
+    const prompt = `You are INFINITUM AI, an intelligent search assistant. A user searched for: "${query}"
+
+Here are the top search results from the web:
+
+${searchContext}
+
+Based on these search results, provide a comprehensive, helpful answer that:
+1. Directly answers the user's query
+2. Synthesizes information from multiple sources
+3. Is accurate and based on the provided search results
+4. Is clear and easy to understand
+5. Highlights the most important information
+
+Also provide:
+- 4-6 key points (bullet points)
+- 4-6 related topics the user might want to explore
+- 3-4 follow-up questions
+
+Format your response as JSON with this structure:
+{
+  "answer": "Your comprehensive answer here",
+  "keyPoints": ["point 1", "point 2", ...],
+  "relatedTopics": ["topic 1", "topic 2", ...],
+  "followUpQuestions": ["question 1", "question 2", ...]
+}`;
+
+    console.log('Calling Gemini AI...');
+    
+    const response = await axios.post(
+      `${GEMINI_API_URL}?key=${GOOGLE_API_KEY}`,
+      {
+        contents: [{
+          parts: [{
+            text: prompt
+          }]
+        }],
+        generationConfig: {
+          temperature: 0.7,
+          topK: 40,
+          topP: 0.95,
+          maxOutputTokens: 2048,
+        }
+      },
+      {
+        timeout: 30000,
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+
+    const geminiResponse = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    
+    if (!geminiResponse) {
+      throw new Error('No response from Gemini AI');
+    }
+
+    console.log('Gemini AI response received');
+
+    // Parse JSON response from Gemini
+    let parsedResponse;
+    try {
+      // Extract JSON from markdown code blocks if present
+      const jsonMatch = geminiResponse.match(/```json\s*([\s\S]*?)\s*```/) || 
+                       geminiResponse.match(/```\s*([\s\S]*?)\s*```/) ||
+                       [null, geminiResponse];
+      
+      parsedResponse = JSON.parse(jsonMatch[1] || geminiResponse);
+    } catch (parseError) {
+      console.log('Failed to parse Gemini response as JSON, using fallback');
+      // Fallback if JSON parsing fails
+      parsedResponse = {
+        answer: geminiResponse,
+        keyPoints: extractKeyPointsFromText(geminiResponse),
+        relatedTopics: generateRelatedTopics(query),
+        followUpQuestions: generateFollowUpQuestions(query)
+      };
+    }
+
+    return {
+      answer: parsedResponse.answer || geminiResponse,
+      keyPoints: parsedResponse.keyPoints || [],
+      relatedTopics: parsedResponse.relatedTopics || [],
+      followUpQuestions: parsedResponse.followUpQuestions || [],
+      confidence: 90, // Gemini AI provides high confidence
+      sources: searchResults.slice(0, 5).map(r => ({
+        title: r.title,
+        url: r.url,
+        domain: r.displayLink
+      })),
+      searchResultsCount: searchResults.length,
+      aiModel: 'Gemini Pro'
+    };
+
+  } catch (error) {
+    console.error('Gemini AI error:', error.message);
+    throw error;
   }
-
-  // Extract key information from search results
-  const titles = searchResults.map(result => result.title);
-  const snippets = searchResults.map(result => result.snippet).filter(Boolean);
-  const sources = searchResults.map(result => ({
-    title: result.title,
-    url: result.url,
-    domain: result.displayLink || new URL(result.url).hostname
-  }));
-
-  // Analyze content and generate intelligent response
-  const analysis = performContentAnalysis(query, titles, snippets);
-  
-  return {
-    answer: analysis.answer,
-    keyPoints: analysis.keyPoints,
-    confidence: analysis.confidence,
-    relatedTopics: generateRelatedTopicsFromResults(query, titles),
-    followUpQuestions: generateFollowUpFromResults(query, snippets),
-    sources: sources.slice(0, 5), // Top 5 sources
-    searchResultsCount: searchResults.length
-  };
 }
 
-// Perform intelligent content analysis
-function performContentAnalysis(query, titles, snippets) {
-  const allText = [...titles, ...snippets].join(' ').toLowerCase();
-  const queryLower = query.toLowerCase();
-  
-  // Determine query type and generate appropriate response
-  if (isDefinitionQuery(queryLower)) {
-    return generateDefinitionResponse(query, titles, snippets);
-  } else if (isHowToQuery(queryLower)) {
-    return generateHowToResponse(query, titles, snippets);
-  } else if (isComparisonQuery(queryLower)) {
-    return generateComparisonResponse(query, titles, snippets);
-  } else if (isFactualQuery(queryLower)) {
-    return generateFactualResponse(query, titles, snippets);
-  } else {
-    return generateGeneralResponse(query, titles, snippets);
-  }
+// Fallback functions
+function extractKeyPointsFromText(text) {
+  const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 20);
+  return sentences.slice(0, 5).map(s => s.trim());
 }
 
-// Check if it's a definition query
-function isDefinitionQuery(query) {
-  return /^(what is|define|meaning of|definition of)/i.test(query);
+function generateRelatedTopics(query) {
+  return [
+    `${query} explained`,
+    `${query} guide`,
+    `${query} examples`,
+    `Latest ${query} trends`,
+    `${query} best practices`,
+    `${query} tutorial`
+  ];
 }
 
-// Check if it's a how-to query
-function isHowToQuery(query) {
-  return /^(how to|how do|how does|how can)/i.test(query);
-}
-
-// Check if it's a comparison query
-function isComparisonQuery(query) {
-  return /(vs|versus|compare|difference between|better than)/i.test(query);
-}
-
-// Check if it's a factual query
-function isFactualQuery(query) {
-  return /(when|where|who|why|which)/i.test(query);
-}
-
-// Generate definition response
-function generateDefinitionResponse(query, titles, snippets) {
-  const relevantSnippets = snippets.slice(0, 3);
-  const keyTerms = extractKeyTerms(relevantSnippets);
-  
-  return {
-    answer: `Based on current search results, ${query.replace(/^(what is|define|meaning of|definition of)\s*/i, '')} can be understood as follows: ${relevantSnippets[0] || 'Multiple sources provide various perspectives on this topic.'}`,
-    keyPoints: [
-      ...keyTerms.slice(0, 4),
-      'Multiple authoritative sources confirm this information',
-      'Current search results provide up-to-date context'
-    ],
-    confidence: calculateConfidence(relevantSnippets.length, titles.length)
-  };
-}
-
-// Generate how-to response
-function generateHowToResponse(query, titles, snippets) {
-  const steps = extractStepsFromSnippets(snippets);
-  const methods = extractMethodsFromTitles(titles);
-  
-  return {
-    answer: `Based on current search results for "${query}", here are the key approaches and methods found across multiple sources. The search results show various techniques and best practices.`,
-    keyPoints: [
-      ...steps.slice(0, 3),
-      ...methods.slice(0, 2),
-      'Multiple sources provide step-by-step guidance'
-    ],
-    confidence: calculateConfidence(snippets.length, titles.length)
-  };
-}
-
-// Generate comparison response
-function generateComparisonResponse(query, titles, snippets) {
-  const comparisons = extractComparisons(snippets);
-  const advantages = extractAdvantages(snippets);
-  
-  return {
-    answer: `Based on current search results comparing ${query}, multiple sources highlight key differences and similarities. The search results provide comprehensive comparisons from various perspectives.`,
-    keyPoints: [
-      ...comparisons.slice(0, 3),
-      ...advantages.slice(0, 2),
-      'Search results show expert opinions and analysis'
-    ],
-    confidence: calculateConfidence(snippets.length, titles.length)
-  };
-}
-
-// Generate factual response
-function generateFactualResponse(query, titles, snippets) {
-  const facts = extractFacts(snippets);
-  const details = extractDetails(titles);
-  
-  return {
-    answer: `According to current search results for "${query}", multiple authoritative sources provide the following information. The search results offer comprehensive and up-to-date facts.`,
-    keyPoints: [
-      ...facts.slice(0, 4),
-      ...details.slice(0, 2),
-      'Information verified across multiple sources'
-    ],
-    confidence: calculateConfidence(snippets.length, titles.length)
-  };
-}
-
-// Generate general response
-function generateGeneralResponse(query, titles, snippets) {
-  const insights = extractInsights(snippets);
-  const topics = extractTopics(titles);
-  
-  return {
-    answer: `Based on comprehensive search results for "${query}", multiple sources provide valuable insights and information. The current search results offer diverse perspectives and up-to-date content.`,
-    keyPoints: [
-      ...insights.slice(0, 3),
-      ...topics.slice(0, 2),
-      'Search results compiled from authoritative sources'
-    ],
-    confidence: calculateConfidence(snippets.length, titles.length)
-  };
-}
-
-// Extract key terms from snippets
-function extractKeyTerms(snippets) {
-  const terms = [];
-  snippets.forEach(snippet => {
-    if (snippet) {
-      // Extract sentences that seem to contain definitions or key information
-      const sentences = snippet.split(/[.!?]+/).filter(s => s.length > 20);
-      terms.push(...sentences.slice(0, 2));
-    }
-  });
-  return terms.filter(Boolean).slice(0, 4);
-}
-
-// Extract steps from snippets
-function extractStepsFromSnippets(snippets) {
-  const steps = [];
-  snippets.forEach(snippet => {
-    if (snippet && (snippet.includes('step') || snippet.includes('first') || snippet.includes('then'))) {
-      const sentences = snippet.split(/[.!?]+/).filter(s => s.length > 15);
-      steps.push(...sentences.slice(0, 2));
-    }
-  });
-  return steps.filter(Boolean).slice(0, 3);
-}
-
-// Extract methods from titles
-function extractMethodsFromTitles(titles) {
-  return titles
-    .filter(title => title && (title.includes('How') || title.includes('Guide') || title.includes('Tutorial')))
-    .map(title => title.replace(/^How to\s*/i, '').replace(/\s*-.*$/, ''))
-    .slice(0, 2);
-}
-
-// Extract comparisons from snippets
-function extractComparisons(snippets) {
-  const comparisons = [];
-  snippets.forEach(snippet => {
-    if (snippet && (snippet.includes('vs') || snippet.includes('compared') || snippet.includes('difference'))) {
-      const sentences = snippet.split(/[.!?]+/).filter(s => s.length > 20);
-      comparisons.push(...sentences.slice(0, 2));
-    }
-  });
-  return comparisons.filter(Boolean).slice(0, 3);
-}
-
-// Extract advantages from snippets
-function extractAdvantages(snippets) {
-  const advantages = [];
-  snippets.forEach(snippet => {
-    if (snippet && (snippet.includes('advantage') || snippet.includes('benefit') || snippet.includes('better'))) {
-      const sentences = snippet.split(/[.!?]+/).filter(s => s.length > 15);
-      advantages.push(...sentences.slice(0, 1));
-    }
-  });
-  return advantages.filter(Boolean).slice(0, 2);
-}
-
-// Extract facts from snippets
-function extractFacts(snippets) {
-  const facts = [];
-  snippets.forEach(snippet => {
-    if (snippet) {
-      const sentences = snippet.split(/[.!?]+/).filter(s => s.length > 25);
-      facts.push(...sentences.slice(0, 2));
-    }
-  });
-  return facts.filter(Boolean).slice(0, 4);
-}
-
-// Extract details from titles
-function extractDetails(titles) {
-  return titles
-    .filter(title => title && title.length > 10)
-    .map(title => title.replace(/\s*-.*$/, '').trim())
-    .slice(0, 2);
-}
-
-// Extract insights from snippets
-function extractInsights(snippets) {
-  const insights = [];
-  snippets.forEach(snippet => {
-    if (snippet) {
-      const sentences = snippet.split(/[.!?]+/).filter(s => s.length > 20);
-      insights.push(...sentences.slice(0, 2));
-    }
-  });
-  return insights.filter(Boolean).slice(0, 3);
-}
-
-// Extract topics from titles
-function extractTopics(titles) {
-  return titles
-    .filter(title => title && title.length > 5)
-    .map(title => title.split(/[-:|]/)[0].trim())
-    .slice(0, 2);
-}
-
-// Calculate confidence based on result quality
-function calculateConfidence(snippetCount, titleCount) {
-  const baseConfidence = 60;
-  const snippetBonus = Math.min(snippetCount * 5, 25);
-  const titleBonus = Math.min(titleCount * 3, 15);
-  
-  return Math.min(baseConfidence + snippetBonus + titleBonus, 95);
-}
-
-// Generate related topics from search results
-function generateRelatedTopicsFromResults(query, titles) {
-  const topics = new Set();
-  
-  titles.forEach(title => {
-    if (title) {
-      // Extract potential topics from titles
-      const words = title.split(/[\s\-:|]+/).filter(word => word.length > 3);
-      words.slice(0, 2).forEach(word => topics.add(word));
-    }
-  });
-  
-  // Add some query variations
-  topics.add(`${query} explained`);
-  topics.add(`${query} guide`);
-  topics.add(`${query} examples`);
-  topics.add(`Latest ${query} news`);
-  
-  return Array.from(topics).slice(0, 6);
-}
-
-// Generate follow-up questions from search results
-function generateFollowUpFromResults(query, snippets) {
-  const questions = new Set();
-  
-  // Generate contextual questions based on snippets
-  if (snippets.some(s => s && s.includes('benefit'))) {
-    questions.add(`What are the benefits of ${query}?`);
-  }
-  if (snippets.some(s => s && s.includes('cost'))) {
-    questions.add(`What does ${query} cost?`);
-  }
-  if (snippets.some(s => s && s.includes('work'))) {
-    questions.add(`How does ${query} work?`);
-  }
-  if (snippets.some(s => s && s.includes('example'))) {
-    questions.add(`What are examples of ${query}?`);
-  }
-  
-  // Add generic follow-ups
-  questions.add(`What are the latest developments in ${query}?`);
-  questions.add(`How is ${query} used in practice?`);
-  questions.add(`What are the challenges with ${query}?`);
-  
-  return Array.from(questions).slice(0, 4);
+function generateFollowUpQuestions(query) {
+  return [
+    `What are the benefits of ${query}?`,
+    `How does ${query} work?`,
+    `What are the latest developments in ${query}?`,
+    `Where can I learn more about ${query}?`
+  ];
 }
 
 // Generate fallback response when no search results
@@ -371,7 +207,8 @@ function generateFallbackResponse(query) {
       `How does ${query} work?`,
       `Where can I learn about ${query}?`
     ],
-    sources: []
+    sources: [],
+    aiModel: 'Gemini Pro (Fallback)'
   };
 }
 
@@ -399,7 +236,7 @@ exports.handler = async (event, context) => {
       };
     }
 
-    console.log(`AI search with real results for: ${query}`);
+    console.log(`Gemini AI search for: ${query}`);
 
     // First, get search results from Google
     let searchData;
@@ -408,7 +245,6 @@ exports.handler = async (event, context) => {
     } catch (searchError) {
       console.log('Google search failed, using fallback:', searchError.message);
       
-      // If Google search fails, provide fallback response
       const fallbackResponse = generateFallbackResponse(query);
       
       const result = {
@@ -420,6 +256,7 @@ exports.handler = async (event, context) => {
         followUpQuestions: fallbackResponse.followUpQuestions,
         sources: fallbackResponse.sources,
         confidence: fallbackResponse.confidence,
+        aiModel: fallbackResponse.aiModel,
         timestamp: new Date().toISOString(),
         platform: 'netlify',
         mode: 'ai',
@@ -433,8 +270,74 @@ exports.handler = async (event, context) => {
       };
     }
 
-    // Analyze the search results with AI
-    const aiAnalysis = analyzeSearchResults(query, searchData.results);
+    // If no search results, return fallback
+    if (!searchData.results || searchData.results.length === 0) {
+      const fallbackResponse = generateFallbackResponse(query);
+      
+      const result = {
+        query,
+        page: parseInt(page),
+        aiAnswer: fallbackResponse.answer,
+        keyPoints: fallbackResponse.keyPoints,
+        relatedTopics: fallbackResponse.relatedTopics,
+        followUpQuestions: fallbackResponse.followUpQuestions,
+        sources: fallbackResponse.sources,
+        confidence: fallbackResponse.confidence,
+        aiModel: fallbackResponse.aiModel,
+        timestamp: new Date().toISOString(),
+        platform: 'netlify',
+        mode: 'ai',
+        note: 'No search results found'
+      };
+
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify(result)
+      };
+    }
+
+    // Analyze with Gemini AI
+    let aiAnalysis;
+    try {
+      aiAnalysis = await analyzeWithGemini(query, searchData.results);
+    } catch (geminiError) {
+      console.error('Gemini AI failed:', geminiError.message);
+      
+      // Return search results with basic analysis if Gemini fails
+      const fallbackResponse = generateFallbackResponse(query);
+      fallbackResponse.answer = `I found ${searchData.results.length} search results for "${query}", but I'm having trouble analyzing them with AI right now. Please check the sources below for information.`;
+      fallbackResponse.sources = searchData.results.slice(0, 5).map(r => ({
+        title: r.title,
+        url: r.url,
+        domain: r.displayLink
+      }));
+      fallbackResponse.confidence = 50;
+      fallbackResponse.aiModel = 'Gemini Pro (Error)';
+      
+      const result = {
+        query,
+        page: parseInt(page),
+        aiAnswer: fallbackResponse.answer,
+        keyPoints: fallbackResponse.keyPoints,
+        relatedTopics: fallbackResponse.relatedTopics,
+        followUpQuestions: fallbackResponse.followUpQuestions,
+        sources: fallbackResponse.sources,
+        confidence: fallbackResponse.confidence,
+        aiModel: fallbackResponse.aiModel,
+        searchResultsAnalyzed: searchData.results.length,
+        timestamp: new Date().toISOString(),
+        platform: 'netlify',
+        mode: 'ai',
+        note: 'Gemini AI error, showing search results'
+      };
+
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify(result)
+      };
+    }
 
     const result = {
       query,
@@ -445,11 +348,12 @@ exports.handler = async (event, context) => {
       followUpQuestions: aiAnalysis.followUpQuestions,
       sources: aiAnalysis.sources,
       confidence: aiAnalysis.confidence,
+      aiModel: aiAnalysis.aiModel,
       searchResultsAnalyzed: aiAnalysis.searchResultsCount,
       timestamp: new Date().toISOString(),
       platform: 'netlify',
       mode: 'ai',
-      note: `AI analysis based on ${aiAnalysis.searchResultsCount} search results`
+      note: `Powered by ${aiAnalysis.aiModel} analyzing ${aiAnalysis.searchResultsCount} search results`
     };
 
     return {
@@ -466,7 +370,8 @@ exports.handler = async (event, context) => {
       query: event.queryStringParameters?.q || 'unknown',
       aiAnswer: 'I apologize, but I encountered an error while analyzing search results for your question. Please try again or rephrase your question.',
       platform: 'netlify',
-      mode: 'ai'
+      mode: 'ai',
+      aiModel: 'Gemini Pro (Error)'
     };
     
     return {
