@@ -8,20 +8,19 @@ const headers = {
 };
 
 const GOOGLE_API_KEY = 'AIzaSyBaBxSWkK54Q5QRhSZ3MgOkuGMOeevzpjM';
-const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent';
+const SEARCH_ENGINE_ID = '9665ae5d79a464466';
+const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GOOGLE_API_KEY}`;
 
 // Get search results from Google
 async function searchGoogleDirect(query, page = 1) {
-  const searchEngineId = '9665ae5d79a464466';
-  
   try {
     const startIndex = (page - 1) * 10 + 1;
-    const url = `https://www.googleapis.com/customsearch/v1?key=${GOOGLE_API_KEY}&cx=${searchEngineId}&q=${encodeURIComponent(query)}&start=${startIndex}`;
+    const url = `https://www.googleapis.com/customsearch/v1?key=${GOOGLE_API_KEY}&cx=${SEARCH_ENGINE_ID}&q=${encodeURIComponent(query)}&start=${startIndex}`;
     
-    console.log(`Google search for Gemini AI: ${query}, page: ${page}`);
+    console.log(`Google search for Gemini AI: ${query}`);
     
     const response = await axios.get(url, { 
-      timeout: 15000,
+      timeout: 10000,
       headers: {
         'User-Agent': 'INFINITUM-AI-SearchEngine/1.0',
         'Accept': 'application/json'
@@ -33,62 +32,45 @@ async function searchGoogleDirect(query, page = 1) {
       title: item.title,
       url: item.link,
       snippet: item.snippet,
-      source: 'google',
       displayLink: item.displayLink
     })) || [];
 
-    return {
-      results,
-      query,
-      page: parseInt(page),
-      totalResults: parseInt(data.searchInformation?.totalResults || 0),
-      hasNextPage: results.length === 10
-    };
+    return results;
   } catch (error) {
     console.error('Google search error:', error.message);
-    throw error;
+    return [];
   }
 }
 
 // Use Gemini AI to analyze search results
 async function analyzeWithGemini(query, searchResults) {
   try {
-    // Prepare context from search results
-    const searchContext = searchResults.map((result, index) => 
-      `[${index + 1}] ${result.title}\n${result.snippet}\nSource: ${result.displayLink}`
+    if (!searchResults || searchResults.length === 0) {
+      throw new Error('No search results to analyze');
+    }
+
+    // Prepare simplified context from search results
+    const context = searchResults.slice(0, 5).map((result, index) => 
+      `${index + 1}. ${result.title}\n${result.snippet}`
     ).join('\n\n');
 
-    // Create prompt for Gemini
-    const prompt = `You are INFINITUM AI, an intelligent search assistant. A user searched for: "${query}"
+    // Simplified prompt for Gemini
+    const prompt = `Based on these search results about "${query}":
 
-Here are the top search results from the web:
+${context}
 
-${searchContext}
-
-Based on these search results, provide a comprehensive, helpful answer that:
-1. Directly answers the user's query
-2. Synthesizes information from multiple sources
-3. Is accurate and based on the provided search results
-4. Is clear and easy to understand
-5. Highlights the most important information
-
-Also provide:
-- 4-6 key points (bullet points)
-- 4-6 related topics the user might want to explore
-- 3-4 follow-up questions
-
-Format your response as JSON with this structure:
+Provide a helpful answer in this exact JSON format:
 {
-  "answer": "Your comprehensive answer here",
-  "keyPoints": ["point 1", "point 2", ...],
-  "relatedTopics": ["topic 1", "topic 2", ...],
-  "followUpQuestions": ["question 1", "question 2", ...]
+  "answer": "A clear 2-3 sentence answer based on the search results",
+  "keyPoints": ["point 1", "point 2", "point 3", "point 4"],
+  "relatedTopics": ["topic 1", "topic 2", "topic 3", "topic 4"],
+  "followUpQuestions": ["question 1?", "question 2?", "question 3?"]
 }`;
 
     console.log('Calling Gemini AI...');
     
     const response = await axios.post(
-      `${GEMINI_API_URL}?key=${GOOGLE_API_KEY}`,
+      GEMINI_API_URL,
       {
         contents: [{
           parts: [{
@@ -96,54 +78,71 @@ Format your response as JSON with this structure:
           }]
         }],
         generationConfig: {
-          temperature: 0.7,
-          topK: 40,
-          topP: 0.95,
-          maxOutputTokens: 2048,
-        }
+          temperature: 0.4,
+          maxOutputTokens: 1024,
+        },
+        safetySettings: [
+          {
+            category: "HARM_CATEGORY_HARASSMENT",
+            threshold: "BLOCK_NONE"
+          },
+          {
+            category: "HARM_CATEGORY_HATE_SPEECH",
+            threshold: "BLOCK_NONE"
+          },
+          {
+            category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+            threshold: "BLOCK_NONE"
+          },
+          {
+            category: "HARM_CATEGORY_DANGEROUS_CONTENT",
+            threshold: "BLOCK_NONE"
+          }
+        ]
       },
       {
-        timeout: 30000,
+        timeout: 20000,
         headers: {
           'Content-Type': 'application/json'
         }
       }
     );
 
-    const geminiResponse = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    const geminiText = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
     
-    if (!geminiResponse) {
+    if (!geminiText) {
       throw new Error('No response from Gemini AI');
     }
 
     console.log('Gemini AI response received');
 
-    // Parse JSON response from Gemini
+    // Parse JSON response
     let parsedResponse;
     try {
-      // Extract JSON from markdown code blocks if present
-      const jsonMatch = geminiResponse.match(/```json\s*([\s\S]*?)\s*```/) || 
-                       geminiResponse.match(/```\s*([\s\S]*?)\s*```/) ||
-                       [null, geminiResponse];
-      
-      parsedResponse = JSON.parse(jsonMatch[1] || geminiResponse);
+      // Try to extract JSON from the response
+      const jsonMatch = geminiText.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        parsedResponse = JSON.parse(jsonMatch[0]);
+      } else {
+        throw new Error('No JSON found in response');
+      }
     } catch (parseError) {
-      console.log('Failed to parse Gemini response as JSON, using fallback');
-      // Fallback if JSON parsing fails
+      console.log('JSON parse failed, using text response');
+      // Fallback: use the text as answer
       parsedResponse = {
-        answer: geminiResponse,
-        keyPoints: extractKeyPointsFromText(geminiResponse),
-        relatedTopics: generateRelatedTopics(query),
-        followUpQuestions: generateFollowUpQuestions(query)
+        answer: geminiText.substring(0, 500),
+        keyPoints: extractPointsFromText(geminiText),
+        relatedTopics: generateSimpleTopics(query),
+        followUpQuestions: generateSimpleQuestions(query)
       };
     }
 
     return {
-      answer: parsedResponse.answer || geminiResponse,
+      answer: parsedResponse.answer || 'Unable to generate answer',
       keyPoints: parsedResponse.keyPoints || [],
       relatedTopics: parsedResponse.relatedTopics || [],
       followUpQuestions: parsedResponse.followUpQuestions || [],
-      confidence: 90, // Gemini AI provides high confidence
+      confidence: 90,
       sources: searchResults.slice(0, 5).map(r => ({
         title: r.title,
         url: r.url,
@@ -154,61 +153,68 @@ Format your response as JSON with this structure:
     };
 
   } catch (error) {
-    console.error('Gemini AI error:', error.message);
+    console.error('Gemini AI error:', error.response?.data || error.message);
     throw error;
   }
 }
 
-// Fallback functions
-function extractKeyPointsFromText(text) {
+// Helper functions
+function extractPointsFromText(text) {
   const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 20);
-  return sentences.slice(0, 5).map(s => s.trim());
+  return sentences.slice(0, 4).map(s => s.trim());
 }
 
-function generateRelatedTopics(query) {
+function generateSimpleTopics(query) {
   return [
     `${query} explained`,
     `${query} guide`,
-    `${query} examples`,
-    `Latest ${query} trends`,
-    `${query} best practices`,
-    `${query} tutorial`
+    `${query} tutorial`,
+    `Latest ${query} news`
   ];
 }
 
-function generateFollowUpQuestions(query) {
+function generateSimpleQuestions(query) {
   return [
-    `What are the benefits of ${query}?`,
+    `What is ${query}?`,
     `How does ${query} work?`,
-    `What are the latest developments in ${query}?`,
-    `Where can I learn more about ${query}?`
+    `Where to learn ${query}?`
   ];
 }
 
-// Generate fallback response when no search results
-function generateFallbackResponse(query) {
+// Generate fallback response when search or AI fails
+function generateFallbackResponse(query, searchResults = []) {
+  const hasResults = searchResults && searchResults.length > 0;
+  
   return {
-    answer: `I searched for "${query}" but couldn't find sufficient search results to provide a comprehensive answer. This might be due to the query being very specific, new, or having limited online information. Please try rephrasing your question or searching for related terms.`,
-    keyPoints: [
-      'No comprehensive search results found for this query',
-      'Try using different keywords or phrases',
-      'Consider searching for related or broader topics',
-      'Check spelling and try alternative terms'
-    ],
-    confidence: 30,
+    answer: hasResults 
+      ? `I found ${searchResults.length} search results for "${query}". While I couldn't analyze them with AI, you can check the sources below for information.`
+      : `I couldn't find search results for "${query}". Try rephrasing your question or using different keywords.`,
+    keyPoints: hasResults
+      ? searchResults.slice(0, 4).map(r => r.title)
+      : [
+          'No search results found',
+          'Try different keywords',
+          'Check spelling',
+          'Use more general terms'
+        ],
+    confidence: hasResults ? 50 : 30,
     relatedTopics: [
-      `${query} alternatives`,
-      `${query} related topics`,
       `${query} basics`,
-      `${query} overview`
+      `${query} guide`,
+      `${query} tutorial`,
+      `Learn ${query}`
     ],
     followUpQuestions: [
       `What is ${query}?`,
-      `How does ${query} work?`,
-      `Where can I learn about ${query}?`
+      `How to learn ${query}?`,
+      `${query} examples`
     ],
-    sources: [],
-    aiModel: 'Gemini Pro (Fallback)'
+    sources: hasResults ? searchResults.slice(0, 5).map(r => ({
+      title: r.title,
+      url: r.url,
+      domain: r.displayLink
+    })) : [],
+    aiModel: 'Fallback Mode'
   };
 }
 
@@ -236,148 +242,121 @@ exports.handler = async (event, context) => {
       };
     }
 
-    console.log(`Gemini AI search for: ${query}`);
+    console.log(`AI search for: ${query}`);
 
-    // First, get search results from Google
-    let searchData;
+    // Step 1: Get search results
+    let searchResults = [];
     try {
-      searchData = await searchGoogleDirect(query, page);
+      searchResults = await searchGoogleDirect(query, page);
+      console.log(`Found ${searchResults.length} search results`);
     } catch (searchError) {
-      console.log('Google search failed, using fallback:', searchError.message);
-      
-      const fallbackResponse = generateFallbackResponse(query);
-      
-      const result = {
-        query,
-        page: parseInt(page),
-        aiAnswer: fallbackResponse.answer,
-        keyPoints: fallbackResponse.keyPoints,
-        relatedTopics: fallbackResponse.relatedTopics,
-        followUpQuestions: fallbackResponse.followUpQuestions,
-        sources: fallbackResponse.sources,
-        confidence: fallbackResponse.confidence,
-        aiModel: fallbackResponse.aiModel,
-        timestamp: new Date().toISOString(),
-        platform: 'netlify',
-        mode: 'ai',
-        note: 'AI response based on fallback due to search API issues'
-      };
+      console.error('Search failed:', searchError.message);
+    }
 
+    // If no search results, return fallback immediately
+    if (!searchResults || searchResults.length === 0) {
+      const fallback = generateFallbackResponse(query, []);
+      
       return {
         statusCode: 200,
         headers,
-        body: JSON.stringify(result)
+        body: JSON.stringify({
+          query,
+          page: parseInt(page),
+          aiAnswer: fallback.answer,
+          keyPoints: fallback.keyPoints,
+          relatedTopics: fallback.relatedTopics,
+          followUpQuestions: fallback.followUpQuestions,
+          sources: fallback.sources,
+          confidence: fallback.confidence,
+          aiModel: fallback.aiModel,
+          searchResultsAnalyzed: 0,
+          timestamp: new Date().toISOString(),
+          platform: 'netlify',
+          mode: 'ai'
+        })
       };
     }
 
-    // If no search results, return fallback
-    if (!searchData.results || searchData.results.length === 0) {
-      const fallbackResponse = generateFallbackResponse(query);
-      
-      const result = {
-        query,
-        page: parseInt(page),
-        aiAnswer: fallbackResponse.answer,
-        keyPoints: fallbackResponse.keyPoints,
-        relatedTopics: fallbackResponse.relatedTopics,
-        followUpQuestions: fallbackResponse.followUpQuestions,
-        sources: fallbackResponse.sources,
-        confidence: fallbackResponse.confidence,
-        aiModel: fallbackResponse.aiModel,
-        timestamp: new Date().toISOString(),
-        platform: 'netlify',
-        mode: 'ai',
-        note: 'No search results found'
-      };
-
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify(result)
-      };
-    }
-
-    // Analyze with Gemini AI
+    // Step 2: Try to analyze with Gemini AI
     let aiAnalysis;
     try {
-      aiAnalysis = await analyzeWithGemini(query, searchData.results);
+      aiAnalysis = await analyzeWithGemini(query, searchResults);
+      console.log('Gemini AI analysis successful');
     } catch (geminiError) {
       console.error('Gemini AI failed:', geminiError.message);
       
-      // Return search results with basic analysis if Gemini fails
-      const fallbackResponse = generateFallbackResponse(query);
-      fallbackResponse.answer = `I found ${searchData.results.length} search results for "${query}", but I'm having trouble analyzing them with AI right now. Please check the sources below for information.`;
-      fallbackResponse.sources = searchData.results.slice(0, 5).map(r => ({
-        title: r.title,
-        url: r.url,
-        domain: r.displayLink
-      }));
-      fallbackResponse.confidence = 50;
-      fallbackResponse.aiModel = 'Gemini Pro (Error)';
+      // Use fallback with search results
+      const fallback = generateFallbackResponse(query, searchResults);
       
-      const result = {
-        query,
-        page: parseInt(page),
-        aiAnswer: fallbackResponse.answer,
-        keyPoints: fallbackResponse.keyPoints,
-        relatedTopics: fallbackResponse.relatedTopics,
-        followUpQuestions: fallbackResponse.followUpQuestions,
-        sources: fallbackResponse.sources,
-        confidence: fallbackResponse.confidence,
-        aiModel: fallbackResponse.aiModel,
-        searchResultsAnalyzed: searchData.results.length,
-        timestamp: new Date().toISOString(),
-        platform: 'netlify',
-        mode: 'ai',
-        note: 'Gemini AI error, showing search results'
-      };
-
       return {
         statusCode: 200,
         headers,
-        body: JSON.stringify(result)
+        body: JSON.stringify({
+          query,
+          page: parseInt(page),
+          aiAnswer: fallback.answer,
+          keyPoints: fallback.keyPoints,
+          relatedTopics: fallback.relatedTopics,
+          followUpQuestions: fallback.followUpQuestions,
+          sources: fallback.sources,
+          confidence: fallback.confidence,
+          aiModel: fallback.aiModel,
+          searchResultsAnalyzed: searchResults.length,
+          timestamp: new Date().toISOString(),
+          platform: 'netlify',
+          mode: 'ai',
+          note: 'Using fallback due to AI error'
+        })
       };
     }
 
-    const result = {
-      query,
-      page: parseInt(page),
-      aiAnswer: aiAnalysis.answer,
-      keyPoints: aiAnalysis.keyPoints,
-      relatedTopics: aiAnalysis.relatedTopics,
-      followUpQuestions: aiAnalysis.followUpQuestions,
-      sources: aiAnalysis.sources,
-      confidence: aiAnalysis.confidence,
-      aiModel: aiAnalysis.aiModel,
-      searchResultsAnalyzed: aiAnalysis.searchResultsCount,
-      timestamp: new Date().toISOString(),
-      platform: 'netlify',
-      mode: 'ai',
-      note: `Powered by ${aiAnalysis.aiModel} analyzing ${aiAnalysis.searchResultsCount} search results`
-    };
-
+    // Step 3: Return successful AI response
     return {
       statusCode: 200,
       headers,
-      body: JSON.stringify(result)
+      body: JSON.stringify({
+        query,
+        page: parseInt(page),
+        aiAnswer: aiAnalysis.answer,
+        keyPoints: aiAnalysis.keyPoints,
+        relatedTopics: aiAnalysis.relatedTopics,
+        followUpQuestions: aiAnalysis.followUpQuestions,
+        sources: aiAnalysis.sources,
+        confidence: aiAnalysis.confidence,
+        aiModel: aiAnalysis.aiModel,
+        searchResultsAnalyzed: aiAnalysis.searchResultsCount,
+        timestamp: new Date().toISOString(),
+        platform: 'netlify',
+        mode: 'ai',
+        note: `Powered by ${aiAnalysis.aiModel}`
+      })
     };
+
   } catch (error) {
     console.error('AI search error:', error);
     
-    const errorResponse = {
-      error: 'AI search failed',
-      details: error.message,
-      query: event.queryStringParameters?.q || 'unknown',
-      aiAnswer: 'I apologize, but I encountered an error while analyzing search results for your question. Please try again or rephrase your question.',
-      platform: 'netlify',
-      mode: 'ai',
-      aiModel: 'Gemini Pro (Error)'
-    };
-    
     return {
-      statusCode: 500,
+      statusCode: 200, // Return 200 to avoid breaking the UI
       headers,
-      body: JSON.stringify(errorResponse)
+      body: JSON.stringify({
+        query: event.queryStringParameters?.q || 'unknown',
+        aiAnswer: 'I apologize, but I encountered an error. Please try again with a different query.',
+        keyPoints: [
+          'An error occurred',
+          'Try rephrasing your question',
+          'Use simpler keywords',
+          'Try again in a moment'
+        ],
+        relatedTopics: [],
+        followUpQuestions: [],
+        sources: [],
+        confidence: 20,
+        aiModel: 'Error Mode',
+        platform: 'netlify',
+        mode: 'ai',
+        error: error.message
+      })
     };
   }
 };
